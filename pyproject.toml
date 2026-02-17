@@ -1,0 +1,102 @@
+[project]
+name = "credexp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Benoît J. T. GIRARD", email = "53222414+BenoitJT-GIRARD@users.noreply.github.com" }
+]
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[project.scripts]
+credexp = "credexp:main"
+
+[build-system]
+requires = ["uv_build>=0.10.3,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+data = [
+    "matplotlib>=3.10.8",
+    "missingno>=0.5.2",
+    "numpy>=1.26,<2.0",
+    "pandas>=2.1,<3.0",
+    "pyarrow>=23.0.1",
+    "scipy>=1.11,<2.0",
+    "seaborn>=0.13.2",
+    "statsmodels>=0.14.6",
+]
+db = [
+    "psycopg[binary]>=3.3.2",
+    "sqlalchemy>=2.0.46",
+]
+dev = [
+    "bandit>=1.9.3",
+    "httpx>=0.28.1",
+    "pre-commit>=4.5.1",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "python-dotenv>=1.2.1",
+    "ruff>=0.15.1",
+]
+ml = [
+    "imbalanced-learn>=0.14.1",
+    "lightgbm>=4.6.0",
+    "scikit-learn>=1.8.0",
+    "xgboost>=3.2.0",
+]
+mlops = [
+    "dice-ml>=0.12",
+    "evidently>=0.7.20",
+    "llvmlite>=0.41",
+    "mlflow>=1.27.0",
+    "numba>=0.58",
+    "optuna>=4.7.0",
+    "shap>=0.45",
+]
+monitoring = [
+    "prometheus-client>=0.24.1",
+    "prometheus-fastapi-instrumentator>=7.1.0",
+]
+notebook = [
+    "ipykernel>=7.2.0",
+    "jupyterlab>=4.5.4",
+]
+perf = [
+    "onnxruntime>=1.24.1",
+]
+serve = [
+    "fastapi>=0.129.0",
+    "gradio>=6.5.1",
+    "pydantic>=2.12.5",
+    "streamlit>=1.19.0",
+    "uvicorn[standard]>=0.41.0",
+]
+
+
+[tool.ruff]
+line-length = 100
+exclude = [
+  "notebooks",
+  "data",
+  "mlruns",
+  "artifacts",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+exclude = ["notebooks"]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+addopts = "-ra --cov=credexp --cov-report=term-missing"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.bandit]
+targets = ["src/credexp"]
+exclude_dirs = [".venv", "tests", "notebooks"]

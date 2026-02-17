@@ -1,0 +1,62 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.py[oc]
+wheels/
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+pip-wheel-metadata/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Virtual envs ---
+.venv/
+venv/
+ENV/
+env/
+
+# --- Jupyter / Notebooks ---
+.ipynb_checkpoints/
+*.nbconvert.ipynb
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.iml
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Env / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- ML / Artifacts ---
+mlruns/
+artifacts/
+logs/
+
+# --- Data (NE JAMAIS committer raw Kaggle) ---
+data/raw/
+data/interim/
+data/processed/
+!data/**/.gitkeep
+
+# --- Temporary exports ---
+*.parquet
+*.feather
+*.pkl
+*.joblib
+
+# --- Docker local ---
+docker-compose.override.yml
