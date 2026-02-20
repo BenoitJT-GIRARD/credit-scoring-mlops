@@ -44,7 +44,7 @@ def main() -> None:
 
     # MLP with 2 activations (requirement)
     log_run(X, y, model_name="mlp", activation="relu", cfg=cfg, dataset_hash=ds.file_hash)
-    log_run(X, y, model_name="mlp", activation="tanh", cfg=cfg, dataset_hash=ds.file_hash)
+    log_run(X, y, model_name="mlp", activation="logistic", cfg=cfg, dataset_hash=ds.file_hash)
 
     # LGBM
     log_run(X, y, model_name="lgbm", activation=None, cfg=cfg, dataset_hash=ds.file_hash)

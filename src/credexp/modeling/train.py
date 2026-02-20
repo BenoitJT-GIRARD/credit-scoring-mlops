@@ -60,16 +60,18 @@ def _make_pipeline(model_name: str, activation: str | None, cfg: TrainConfig):
     elif model_name == "lr":
         class_weight = "balanced" if cfg.imbalance == "balanced" else None
         model = LogisticRegression(
-            max_iter=2000,
+            max_iter=5000,
             class_weight=class_weight,
-            n_jobs=-1,
         )
     elif model_name == "mlp":
+        lr_init = 1e-3
+        if activation in {"tanh", "logistic"}:
+            lr_init = 1e-4
         model = MLPClassifier(
             hidden_layer_sizes=(128, 64),
             activation=activation or "relu",
             alpha=1e-4,
-            learning_rate_init=3e-4 if (activation == "tanh") else 1e-3,
+            learning_rate_init=lr_init,
             max_iter=50,
             early_stopping=True,
             n_iter_no_change=10,
