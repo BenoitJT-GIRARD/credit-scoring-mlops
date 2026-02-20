@@ -7,7 +7,9 @@ authors = [
     { name = "Benoît J. T. GIRARD", email = "53222414+BenoitJT-GIRARD@users.noreply.github.com" }
 ]
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "setuptools<70",
+]
 
 [project.scripts]
 credexp = "credexp:main"
