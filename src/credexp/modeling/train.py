@@ -29,8 +29,19 @@ class TrainConfig:
     n_splits: int = 5
     random_state: int = settings.random_state
     use_undersampling: bool = False
+    imbalance: str = "balanced"  # "none" | "balanced"
     cost_fn: float = 10.0
     cost_fp: float = 1.0
+
+
+def _compute_sample_weight(y: np.ndarray) -> np.ndarray:
+    y = np.asarray(y)
+    n = len(y)
+    n_pos = int((y == 1).sum())
+    n_neg = int((y == 0).sum())
+    w_pos = n / (2 * max(n_pos, 1))
+    w_neg = n / (2 * max(n_neg, 1))
+    return np.where(y == 1, w_pos, w_neg).astype(float)
 
 
 def _make_pipeline(model_name: str, activation: str | None, cfg: TrainConfig):
@@ -43,23 +54,29 @@ def _make_pipeline(model_name: str, activation: str | None, cfg: TrainConfig):
     steps.extend(prep_steps)
 
     if model_name == "lr":
+        class_weight = "balanced" if cfg.imbalance == "balanced" else None
         model = LogisticRegression(
             max_iter=2000,
-            class_weight="balanced",
+            class_weight=class_weight,
             n_jobs=-1,
         )
     elif model_name == "mlp":
         model = MLPClassifier(
-            hidden_layer_sizes=(256, 128),
+            hidden_layer_sizes=(128, 64),
             activation=activation or "relu",
             alpha=1e-4,
             learning_rate_init=1e-3,
             max_iter=50,
+            early_stopping=True,
+            n_iter_no_change=10,
+            validation_fraction=0.1,
             random_state=cfg.random_state,
         )
     elif model_name == "lgbm":
         if lgb is None:
             raise RuntimeError("lightgbm not installed")
+        class_weight = "balanced" if cfg.imbalance == "balanced" else None
+
         model = lgb.LGBMClassifier(
             n_estimators=1500,
             learning_rate=0.03,
@@ -68,6 +85,7 @@ def _make_pipeline(model_name: str, activation: str | None, cfg: TrainConfig):
             colsample_bytree=0.8,
             reg_lambda=1.0,
             objective="binary",
+            class_weight=class_weight,
             random_state=cfg.random_state,
             n_jobs=-1,
         )
