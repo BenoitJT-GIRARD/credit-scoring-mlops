@@ -12,5 +12,5 @@ def make_numeric_steps(scale: bool):
         ("imputer", SimpleImputer(strategy="median")),
     ]
     if scale:
-        steps.append(("scaler", StandardScaler(with_mean=False)))
+        steps.append(("scaler", StandardScaler()))
     return steps

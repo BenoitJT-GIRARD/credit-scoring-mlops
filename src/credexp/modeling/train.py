@@ -69,7 +69,7 @@ def _make_pipeline(model_name: str, activation: str | None, cfg: TrainConfig):
             hidden_layer_sizes=(128, 64),
             activation=activation or "relu",
             alpha=1e-4,
-            learning_rate_init=1e-3,
+            learning_rate_init=3e-4 if (activation == "tanh") else 1e-3,
             max_iter=50,
             early_stopping=True,
             n_iter_no_change=10,
@@ -121,6 +121,11 @@ def run_cv(X, y, model_name: str, activation: str | None, cfg: TrainConfig):
         pipe.fit(X_tr, y_tr, **fit_params)
 
         proba = pipe.predict_proba(X_va)[:, 1]
+
+        if not np.isfinite(proba).all():
+            raise ValueError(
+                f"Non-finite probabilities detected (nan/inf) for model={model_name} activation={activation} fold={fold}"
+            )
 
         best_thr, best_cost = find_best_threshold(
             y_true=y_va.to_numpy(),
