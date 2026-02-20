@@ -6,6 +6,7 @@ import mlflow
 import numpy as np
 from imblearn.pipeline import Pipeline as ImbPipeline
 from imblearn.under_sampling import RandomUnderSampler
+from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 from sklearn.neural_network import MLPClassifier
@@ -53,7 +54,10 @@ def _make_pipeline(model_name: str, activation: str | None, cfg: TrainConfig):
     steps = []
     steps.extend(prep_steps)
 
-    if model_name == "lr":
+    if model_name == "dummy":
+        # activation contient ici la "strategy": "most_frequent" ou "stratified"
+        model = DummyClassifier(strategy=activation or "most_frequent")
+    elif model_name == "lr":
         class_weight = "balanced" if cfg.imbalance == "balanced" else None
         model = LogisticRegression(
             max_iter=2000,
@@ -92,7 +96,8 @@ def _make_pipeline(model_name: str, activation: str | None, cfg: TrainConfig):
     else:
         raise ValueError(f"Unknown model_name={model_name}")
 
-    if cfg.use_undersampling:
+    use_under = cfg.use_undersampling and model_name != "dummy"
+    if use_under:
         steps.append(("under", RandomUnderSampler(random_state=cfg.random_state)))
 
     steps.append(("model", model))
@@ -109,7 +114,11 @@ def run_cv(X, y, model_name: str, activation: str | None, cfg: TrainConfig):
         y_tr, y_va = y.iloc[tr], y.iloc[va]
 
         pipe = _make_pipeline(model_name, activation, cfg)
-        pipe.fit(X_tr, y_tr)
+        fit_params = {}
+        if model_name == "mlp" and cfg.imbalance == "balanced" and not cfg.use_undersampling:
+            fit_params["model__sample_weight"] = _compute_sample_weight(y_tr.to_numpy())
+
+        pipe.fit(X_tr, y_tr, **fit_params)
 
         proba = pipe.predict_proba(X_va)[:, 1]
 

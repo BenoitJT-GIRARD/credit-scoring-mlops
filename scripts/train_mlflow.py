@@ -34,6 +34,12 @@ def main() -> None:
     )
 
     # Baselines
+    log_run(
+        X, y, model_name="dummy", activation="most_frequent", cfg=cfg, dataset_hash=ds.file_hash
+    )
+    log_run(X, y, model_name="dummy", activation="stratified", cfg=cfg, dataset_hash=ds.file_hash)
+
+    # LR
     log_run(X, y, model_name="lr", activation=None, cfg=cfg, dataset_hash=ds.file_hash)
 
     # MLP with 2 activations (requirement)
