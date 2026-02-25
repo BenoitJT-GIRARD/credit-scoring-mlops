@@ -73,18 +73,37 @@ def main() -> None:
     )
 
     # Baseline LGBM params (you can tune later via Optuna)
+    # class_weight = "balanced"
+    # model = lgb.LGBMClassifier(
+    #     n_estimators=2000,
+    #     learning_rate=0.03,
+    #     num_leaves=64,
+    #     subsample=0.8,
+    #     colsample_bytree=0.8,
+    #     reg_lambda=1.0,
+    #     objective="binary",
+    #     class_weight=class_weight,
+    #     random_state=settings.random_state,
+    #     n_jobs=-1,
+    # )
+
+    # Tuned LGBM params (from Optuna best trial)
     class_weight = "balanced"
     model = lgb.LGBMClassifier(
-        n_estimators=2000,
-        learning_rate=0.03,
-        num_leaves=64,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        reg_lambda=1.0,
+        n_estimators=781,
+        learning_rate=0.022855,
+        num_leaves=59,
+        max_depth=6,
+        min_child_samples=117,
+        subsample=0.609379,
+        colsample_bytree=0.900507,
+        reg_alpha=1.233276,
+        reg_lambda=4.120487,
         objective="binary",
         class_weight=class_weight,
         random_state=settings.random_state,
         n_jobs=-1,
+        verbosity=-1,
     )
 
     pipe = Pipeline(
@@ -107,6 +126,20 @@ def main() -> None:
         mlflow.log_param("cost_fp", args.cost_fp)
         mlflow.log_param("class_weight", class_weight)
         mlflow.log_param("features_file", str(features_path))
+        # Log tuned hyperparams
+        mlflow.log_params(
+            {
+                "lgbm_n_estimators": 781,
+                "lgbm_learning_rate": 0.022855,
+                "lgbm_num_leaves": 59,
+                "lgbm_max_depth": 6,
+                "lgbm_min_child_samples": 117,
+                "lgbm_subsample": 0.609379,
+                "lgbm_colsample_bytree": 0.900507,
+                "lgbm_reg_alpha": 1.233276,
+                "lgbm_reg_lambda": 4.120487,
+            }
+        )
 
         # 3) Fit on train split, choose threshold on val split
         pipe.fit(X_tr, y_tr)
