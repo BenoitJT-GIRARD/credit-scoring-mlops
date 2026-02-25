@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
-import mlflow
 import numpy as np
 from imblearn.pipeline import Pipeline as ImbPipeline
 from imblearn.under_sampling import RandomUnderSampler
@@ -11,6 +10,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 from sklearn.neural_network import MLPClassifier
 
+import mlflow
 from credexp.config import settings
 from credexp.modeling.metrics import evaluate_binary
 from credexp.modeling.pipelines import make_numeric_steps

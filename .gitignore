@@ -43,8 +43,11 @@ Thumbs.db
 
 # --- ML / Artifacts ---
 mlruns/
+mlflow/
+mlruns_old/
 artifacts/
 logs/
+*.db
 
 # --- Data (NE JAMAIS committer raw Kaggle) ---
 data/raw/

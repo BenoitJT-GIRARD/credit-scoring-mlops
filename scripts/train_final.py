@@ -5,12 +5,12 @@ import json
 from pathlib import Path
 
 import joblib
-import mlflow
 import pandas as pd
 from sklearn.metrics import average_precision_score, confusion_matrix, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
+import mlflow
 from credexp.config import ARTIFACTS_DIR, DATA_DIR, settings
 from credexp.modeling.pipelines import make_numeric_steps
 from credexp.modeling.threshold import business_cost, find_best_threshold
@@ -96,6 +96,7 @@ def main() -> None:
 
     # MLflow setup
     mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
+    mlflow.set_registry_uri(settings.mlflow_registry_uri)
     mlflow.set_experiment(settings.mlflow_experiment_name)
 
     with mlflow.start_run(run_name=args.run_name):
@@ -183,7 +184,11 @@ def main() -> None:
         mlflow.log_artifact(str(holdout_path), artifact_path="export")
 
         # Also log as MLflow model (appears under run -> Artifacts/model)
-        mlflow.sklearn.log_model(pipe, artifact_path="model")
+        mlflow.sklearn.log_model(
+            pipe,
+            artifact_path="model",
+            registered_model_name="credit_scoring_model",
+        )
 
         log.info("Final model exported and logged to MLflow.")
 
