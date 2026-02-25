@@ -161,7 +161,7 @@ def log_run(X, y, model_name: str, activation: str | None, cfg: TrainConfig, dat
 
     with mlflow.start_run(run_name=run_name):
         mlflow.log_params({**asdict(cfg), "model": model_name, "activation": activation or ""})
-        mlflow.log_param("features_parquet_md5", dataset_hash)
+        mlflow.log_param("features_parquet_sha256", dataset_hash)
         metrics = run_cv(X, y, model_name=model_name, activation=activation, cfg=cfg)
         mlflow.log_metrics(metrics)
         log.info(f"MLflow logged: {run_name} metrics={metrics}")
