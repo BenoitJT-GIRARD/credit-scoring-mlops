@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 
 import mlflow
-
 from credexp.config import settings
 from credexp.modeling.dataset import load_features
 from credexp.modeling.train import TrainConfig, log_run
@@ -24,6 +23,7 @@ def main() -> None:
     X, y = ds.X_train, ds.y_train
 
     mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
+    mlflow.set_registry_uri(settings.mlflow_registry_uri)
     mlflow.set_experiment(settings.mlflow_experiment_name)
 
     cfg = TrainConfig(
