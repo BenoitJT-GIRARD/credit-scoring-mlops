@@ -1,0 +1,9 @@
+{
+  "n_background": 5000,
+  "n_sample": 1500,
+  "random_state": 42,
+  "expected_value": -0.7504193066120133,
+  "idx_high_risk_in_sample": 718,
+  "idx_low_risk_in_sample": 635,
+  "topn_importance": 30
+}
