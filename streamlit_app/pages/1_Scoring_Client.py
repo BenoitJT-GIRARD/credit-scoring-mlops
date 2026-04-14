@@ -1,9 +1,10 @@
 import json
+import os
 
 import httpx
 import streamlit as st
 
-API_BASE_URL = "http://127.0.0.1:8000"
+API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
 
 st.title("🧮 Scoring Client")
 st.write("Envoie une requête à l’API FastAPI pour obtenir un score de défaut.")
@@ -22,6 +23,8 @@ payload_text = st.text_area(
     value=json.dumps(default_payload, indent=2),
     height=250,
 )
+
+st.caption(f"API utilisée : {API_BASE_URL}")
 
 if st.button("Scorer ce client"):
     try:
