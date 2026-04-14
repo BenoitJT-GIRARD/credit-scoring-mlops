@@ -11,5 +11,24 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    container_name: credexp_api
+    depends_on:
+      - db
+    environment:
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/credexp
+      MLFLOW_TRACKING_URI: sqlite:////app/mlflow/mlflow.db
+      MLFLOW_REGISTRY_URI: sqlite:////app/mlflow/mlflow.db
+      MLFLOW_ARTIFACT_ROOT: /app/mlflow/artifacts
+      MODEL_URI: models:/credit_scoring_model/Production
+      PROMETHEUS_ENABLED: "true"
+    ports:
+      - "8000:8000"
+
 volumes:
   postgres_data:
