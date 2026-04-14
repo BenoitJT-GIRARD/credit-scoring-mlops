@@ -9,15 +9,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm 
 
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml uv.lock* README.md ./
+COPY pyproject.toml ./
+COPY README.md ./
 COPY src ./src
-
-RUN uv sync --no-dev --group data --group db --group ml --group mlops --group monitoring --group serve
-
 COPY scripts ./scripts
+COPY streamlit_app ./streamlit_app
 COPY data/processed ./data/processed
 COPY artifacts/models ./artifacts/models
 COPY mlflow ./mlflow
+
+RUN uv sync --no-dev --group serve --group db --group monitoring --group mlops --group ml --group data
 
 ENV PYTHONPATH=/app/src
 ENV API_HOST=0.0.0.0
