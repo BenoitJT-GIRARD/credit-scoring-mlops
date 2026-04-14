@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
+from mlflow.tracking import MlflowClient
 
 import mlflow
 from credexp.modeling.explainability import (
@@ -11,7 +12,6 @@ from credexp.modeling.explainability import (
     run_explainability,
     split_X_y_from_features,
 )
-from mlflow.tracking import MlflowClient
 
 
 def resolve_project_root() -> Path:
