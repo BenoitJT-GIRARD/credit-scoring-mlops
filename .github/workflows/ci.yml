@@ -34,6 +34,7 @@ jobs:
       MLFLOW_ARTIFACT_ROOT: mlflow/artifacts
       MODEL_URI: models:/credit_scoring_model/Production
       PROMETHEUS_ENABLED: "true"
+      EVIDENTLY_REFERENCE_PATH: data/processed/reference.parquet
 
     steps:
       - name: Checkout repository
@@ -44,7 +45,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install uv
+      - name: Set up uv
         uses: astral-sh/setup-uv@v3
 
       - name: Sync dependencies
@@ -69,3 +70,6 @@ jobs:
 
       - name: Build API image
         run: docker build -f docker/api.Dockerfile -t credexp-api:ci .
+
+      - name: Validate docker compose file
+        run: docker compose config
