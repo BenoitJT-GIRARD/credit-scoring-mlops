@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from evidently import Dataset, DataDefinition, Report
+from evidently import DataDefinition, Dataset, Report
 from evidently.presets import DataDriftPreset
 from sqlalchemy import create_engine, text
 
