@@ -1,0 +1,7 @@
+{
+  "single_total_ms_for_50_calls": 154.9919999999929,
+  "single_avg_ms_per_row": 3.0998399999998583,
+  "batch_total_ms_for_50_rows": 4.860499999949752,
+  "batch_avg_ms_per_row": 0.09720999999899504,
+  "speedup_factor_per_row": 31.88807735862467
+}

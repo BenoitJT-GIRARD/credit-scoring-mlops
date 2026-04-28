@@ -1,0 +1,26 @@
+         332532 function calls (328250 primitive calls) in 0.245 seconds
+
+   Ordered by: cumulative time
+   List reduced from 517 to 20 due to restriction <20>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.002    0.002    0.245    0.245 scripts\profile_inference.py:30(run_inference)
+       20    0.000    0.000    0.243    0.012 .venv\Lib\site-packages\sklearn\pipeline.py:815(predict_proba)
+       40    0.000    0.000    0.169    0.004 .venv\Lib\site-packages\sklearn\utils\_set_output.py:314(wrapped)
+       40    0.000    0.000    0.157    0.004 .venv\Lib\site-packages\sklearn\utils\validation.py:2793(validate_data)
+       20    0.009    0.000    0.140    0.007 .venv\Lib\site-packages\sklearn\impute\_base.py:595(transform)
+       20    0.000    0.000    0.124    0.006 .venv\Lib\site-packages\sklearn\impute\_base.py:330(_validate_input)
+       40    0.017    0.000    0.119    0.003 .venv\Lib\site-packages\sklearn\utils\validation.py:725(check_array)
+       20    0.000    0.000    0.072    0.004 .venv\Lib\site-packages\lightgbm\sklearn.py:1615(predict_proba)
+       20    0.000    0.000    0.071    0.004 .venv\Lib\site-packages\lightgbm\sklearn.py:1093(predict)
+       40    0.000    0.000    0.041    0.001 .venv\Lib\site-packages\pandas\core\generic.py:2152(__array__)
+       40    0.000    0.000    0.040    0.001 .venv\Lib\site-packages\pandas\core\frame.py:1115(_values)
+       40    0.000    0.000    0.040    0.001 .venv\Lib\site-packages\pandas\core\frame.py:12617(values)
+       40    0.000    0.000    0.040    0.001 .venv\Lib\site-packages\pandas\core\internals\managers.py:1652(as_array)
+       40    0.015    0.000    0.040    0.001 .venv\Lib\site-packages\pandas\core\internals\managers.py:1726(_interleave)
+       40    0.001    0.000    0.036    0.001 .venv\Lib\site-packages\sklearn\utils\validation.py:2633(_check_feature_names)
+       40    0.001    0.000    0.032    0.001 .venv\Lib\site-packages\pandas\core\internals\managers.py:317(apply)
+       20    0.000    0.000    0.028    0.001 src\credexp\modeling\preprocess.py:14(transform)
+       20    0.000    0.000    0.028    0.001 .venv\Lib\site-packages\pandas\core\generic.py:7910(replace)
+       20    0.000    0.000    0.027    0.001 .venv\Lib\site-packages\pandas\core\internals\base.py:267(replace_list)
+7920/7860    0.001    0.000    0.027    0.000 {built-in method builtins.getattr}

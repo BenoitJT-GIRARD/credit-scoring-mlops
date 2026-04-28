@@ -67,3 +67,5 @@ reports/monitoring/*.json
 
 # --- Docker local ---
 docker-compose.override.yml
+
+demo.md
