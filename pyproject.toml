@@ -67,6 +67,7 @@ notebook = [
     "jupyterlab>=4.5.4",
 ]
 perf = [
+    "onnxmltools>=1.16.0",
     "onnxruntime>=1.24.1",
 ]
 serve = [
