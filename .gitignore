@@ -62,10 +62,6 @@ data/processed/
 *.feather
 *.pkl
 *.joblib
-reports/monitoring/*.html
-reports/monitoring/*.json
 
 # --- Docker local ---
 docker-compose.override.yml
-
-demo.md
