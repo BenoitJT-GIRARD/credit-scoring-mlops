@@ -1,9 +1,9 @@
 {
   "n_rows": 200,
   "n_loops": 20,
-  "avg_ms": 12.254304999999022,
-  "min_ms": 11.334700000020348,
-  "max_ms": 19.124000000033448,
+  "avg_ms": 11.654050000197458,
+  "min_ms": 10.858900001039729,
+  "max_ms": 18.788399998811656,
   "stats_file": "reports\\performance\\cprofile_inference.prof",
   "top20_file": "reports\\performance\\cprofile_inference_top20.txt"
 }
