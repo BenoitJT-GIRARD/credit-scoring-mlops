@@ -56,11 +56,24 @@ jobs:
           --group serve
           --group db
           --group monitoring
+          --group perf
 
-      - name: Ruff lint
+      - name: Show tool versions
+        run: |
+          uv --version
+          uv run python --version
+          uv run ruff --version
+
+      - name: Ruff lint autofix
+        run: uv run ruff check . --fix
+
+      - name: Ruff format autofix
+        run: uv run ruff format .
+
+      - name: Ruff final lint check
         run: uv run ruff check .
 
-      - name: Ruff format check
+      - name: Ruff final format check
         run: uv run ruff format --check .
 
       - name: Run tests
