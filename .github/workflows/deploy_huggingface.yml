@@ -1,0 +1,68 @@
+name: deploy-huggingface
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+jobs:
+  deploy-space:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Prepare Hugging Face Space folder
+        run: |
+          rm -rf _hf_space
+          mkdir -p _hf_space
+
+          cp deploy/huggingface/README.md _hf_space/README.md
+          cp deploy/huggingface/Dockerfile _hf_space/Dockerfile
+          mkdir -p _hf_space/deploy/huggingface
+          cp deploy/huggingface/nginx.conf _hf_space/deploy/huggingface/nginx.conf
+          cp deploy/huggingface/start.sh _hf_space/deploy/huggingface/start.sh
+
+          cp pyproject.toml _hf_space/pyproject.toml
+          cp uv.lock _hf_space/uv.lock
+          cp -r src _hf_space/src
+          cp -r scripts _hf_space/scripts
+          cp -r streamlit_app _hf_space/streamlit_app
+          mkdir -p _hf_space/artifacts
+          cp -r artifacts/models _hf_space/artifacts/models
+
+      - name: Validate Space folder
+        run: |
+          test -f _hf_space/README.md
+          test -f _hf_space/Dockerfile
+          test -f _hf_space/artifacts/models/pipeline.joblib
+          test -f _hf_space/artifacts/models/threshold.json
+          test -f _hf_space/artifacts/models/feature_columns.json
+          find _hf_space -maxdepth 3 -type f | sort | head -50
+
+      - name: Install Hugging Face Hub
+        run: pip install huggingface_hub
+
+      - name: Upload to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+
+          token = os.environ["HF_TOKEN"]
+          repo_id = os.environ["HF_SPACE_ID"]
+
+          api = HfApi(token=token)
+          api.upload_folder(
+              repo_id=repo_id,
+              repo_type="space",
+              folder_path="_hf_space",
+              commit_message="Deploy from GitHub Actions",
+          )
+          PY

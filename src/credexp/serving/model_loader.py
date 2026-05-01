@@ -7,15 +7,17 @@ from pathlib import Path
 
 import joblib
 import pandas as pd
+from mlflow.tracking import MlflowClient
 
 import mlflow
 from credexp.config import settings
 from credexp.data.io import processed_dir
-from mlflow.tracking import MlflowClient
 
 
 @dataclass(frozen=True)
 class ModelBundle:
+    """Container for the loaded scoring model and its serving metadata."""
+
     pipe: object
     threshold: float
     model_name: str
@@ -23,26 +25,68 @@ class ModelBundle:
     feature_columns: list[str]
 
 
-def _load_feature_columns() -> list[str]:
+def _model_dir() -> Path:
+    """Return the default local model artifact directory."""
+    return settings.artifacts_dir / "models"
+
+
+def _first_existing_path(candidates: list[str | Path | None]) -> Path | None:
+    """Return the first existing path from a list of optional candidates."""
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        path = Path(candidate)
+        if path.exists():
+            return path
+    return None
+
+
+def _load_threshold() -> float:
+    """Load the business decision threshold.
+
+    Priority:
+    1. THRESHOLD_PATH environment variable
+    2. artifacts/models/threshold.json
+    3. DEFAULT_THRESHOLD environment variable
+    4. 0.5 fallback
+    """
+    threshold_path = _first_existing_path(
+        [
+            os.getenv("THRESHOLD_PATH"),
+            _model_dir() / "threshold.json",
+        ]
+    )
+
+    if threshold_path is not None:
+        payload = json.loads(threshold_path.read_text(encoding="utf-8"))
+        return float(payload["threshold"])
+
+    return float(os.getenv("DEFAULT_THRESHOLD", "0.5"))
+
+
+def _load_feature_columns(pipe: object | None = None) -> list[str]:
     """Load the exact feature column order expected by the model.
 
     Priority:
-    1. FEATURE_COLUMNS_PATH env var / artifacts/models/feature_columns.json
-    2. data/processed/api_holdout.parquet
-    3. data/processed/features.parquet
+    1. FEATURE_COLUMNS_PATH environment variable
+    2. artifacts/models/feature_columns.json
+    3. data/processed/api_holdout.parquet
+    4. data/processed/features.parquet
+    5. pipe.feature_names_in_ if available
 
-    The JSON option is required for remote deployment where processed datasets
-    are not necessarily shipped with the API image.
+    The JSON option is preferred for remote deployment, because processed
+    datasets are not necessarily shipped with the deployed API image.
     """
-    feature_columns_path = Path(
-        os.getenv(
-            "FEATURE_COLUMNS_PATH",
-            "artifacts/models/feature_columns.json",
-        )
+    feature_columns_path = _first_existing_path(
+        [
+            os.getenv("FEATURE_COLUMNS_PATH"),
+            _model_dir() / "feature_columns.json",
+        ]
     )
 
-    if feature_columns_path.exists():
-        return json.loads(feature_columns_path.read_text(encoding="utf-8"))
+    if feature_columns_path is not None:
+        columns = json.loads(feature_columns_path.read_text(encoding="utf-8"))
+        return [str(col) for col in columns]
 
     holdout_path = processed_dir() / "api_holdout.parquet"
     if holdout_path.exists():
@@ -54,72 +98,64 @@ def _load_feature_columns() -> list[str]:
         df = pd.read_parquet(features_path)
         return [col for col in df.columns if col != "TARGET"]
 
+    if pipe is not None and hasattr(pipe, "feature_names_in_"):
+        return [str(col) for col in pipe.feature_names_in_]
+
     raise FileNotFoundError(
-        "Could not load feature columns. Provide either "
-        "artifacts/models/feature_columns.json, "
-        "data/processed/api_holdout.parquet, or data/processed/features.parquet."
+        "Could not load feature columns. Provide one of: "
+        "FEATURE_COLUMNS_PATH, artifacts/models/feature_columns.json, "
+        "data/processed/api_holdout.parquet, data/processed/features.parquet, "
+        "or a pipeline exposing feature_names_in_."
     )
-
-
-def _load_threshold() -> float:
-    """Load the business threshold.
-
-    Priority:
-    1. THRESHOLD_PATH env var / artifacts/models/threshold.json
-    2. DEFAULT_THRESHOLD env var
-    3. 0.5 fallback
-    """
-    threshold_path = Path(
-        os.getenv(
-            "THRESHOLD_PATH",
-            str(settings.artifacts_dir / "models" / "threshold.json"),
-        )
-    )
-
-    if threshold_path.exists():
-        payload = json.loads(threshold_path.read_text(encoding="utf-8"))
-        return float(payload["threshold"])
-
-    return float(os.getenv("DEFAULT_THRESHOLD", "0.5"))
 
 
 def _load_local_joblib_model() -> object:
     """Load a local joblib pipeline.
 
     Used for:
-    - Hugging Face API Space deployment
-    - fallback when MLflow registry is unavailable
+    - Hugging Face Space deployment
+    - local debug without MLflow
+    - fallback when MLflow Registry is unavailable
     """
-    model_path = Path(
-        os.getenv(
-            "PIPELINE_PATH",
-            str(settings.artifacts_dir / "models" / "pipeline.joblib"),
-        )
+    model_path = _first_existing_path(
+        [
+            os.getenv("MODEL_JOBLIB_PATH"),
+            os.getenv("PIPELINE_PATH"),
+            _model_dir() / "pipeline.joblib",
+        ]
     )
 
-    if not model_path.exists():
-        raise FileNotFoundError(f"Local model not found: {model_path}")
+    if model_path is None:
+        raise FileNotFoundError(
+            "Local model not found. Expected one of: "
+            "MODEL_JOBLIB_PATH, PIPELINE_PATH, artifacts/models/pipeline.joblib."
+        )
 
     return joblib.load(model_path)
 
 
 def _resolve_model_version(model_name: str) -> str:
-    """Resolve model version from MLflow Registry when available."""
+    """Resolve model version from MLflow Registry when available.
+
+    This function is best-effort. If the registry is unavailable, it returns
+    'unknown' instead of breaking the API startup.
+    """
     try:
         client = MlflowClient(
             tracking_uri=settings.mlflow_tracking_uri,
             registry_uri=settings.mlflow_registry_uri,
         )
-        versions = client.search_model_versions(f"name='{model_name}'")
+        versions = list(client.search_model_versions(f"name='{model_name}'"))
 
         for version in versions:
-            aliases = getattr(version, "aliases", [])
+            aliases = getattr(version, "aliases", []) or []
             current_stage = getattr(version, "current_stage", "")
             if "Production" in aliases or current_stage == "Production":
                 return str(version.version)
 
         if versions:
-            return str(sorted(versions, key=lambda v: int(v.version), reverse=True)[0].version)
+            latest = sorted(versions, key=lambda item: int(item.version), reverse=True)[0]
+            return str(latest.version)
 
     except Exception:
         return "unknown"
@@ -127,44 +163,61 @@ def _resolve_model_version(model_name: str) -> str:
     return "unknown"
 
 
-def _load_mlflow_model(model_name: str) -> tuple[object, str]:
-    """Load model from MLflow Registry."""
+def _load_mlflow_model(model_uri: str, model_name: str) -> tuple[object, str]:
+    """Load model from MLflow Registry or MLflow model URI."""
     mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
     mlflow.set_registry_uri(settings.mlflow_registry_uri)
 
-    pipe = mlflow.sklearn.load_model(settings.model_uri)
+    pipe = mlflow.sklearn.load_model(model_uri)
     model_version = _resolve_model_version(model_name)
 
     return pipe, model_version
+
+
+def _should_use_joblib(load_mode: str, model_uri: str) -> bool:
+    """Return whether the loader should bypass MLflow and use joblib directly."""
+    use_local_model = os.getenv("USE_LOCAL_MODEL", "false").lower() == "true"
+
+    return use_local_model or load_mode in {"joblib", "local"} or not model_uri
 
 
 def load_model_bundle() -> ModelBundle:
     """Load model, threshold and feature schema.
 
     Local full-stack mode:
-        uses MLflow Registry first, then fallback joblib.
+        MODEL_LOAD_MODE=auto
+        MODEL_URI=models:/credit_scoring_model/Production
 
-    Remote lightweight mode:
-        set USE_LOCAL_MODEL=true and provide:
-        - PIPELINE_PATH
-        - THRESHOLD_PATH
-        - FEATURE_COLUMNS_PATH
+    Remote Hugging Face mode:
+        MODEL_LOAD_MODE=joblib
+        MODEL_JOBLIB_PATH=/app/artifacts/models/pipeline.joblib
+        THRESHOLD_PATH=/app/artifacts/models/threshold.json
+        FEATURE_COLUMNS_PATH=/app/artifacts/models/feature_columns.json
+
+    Backward compatibility:
+        USE_LOCAL_MODEL=true and PIPELINE_PATH are also supported.
     """
     model_name = os.getenv("MODEL_NAME", "credit_scoring_model")
-    use_local_model = os.getenv("USE_LOCAL_MODEL", "false").lower() == "true"
+    model_uri = os.getenv("MODEL_URI", getattr(settings, "model_uri", "")).strip()
+    load_mode = os.getenv("MODEL_LOAD_MODE", "auto").lower()
 
-    threshold = _load_threshold()
-    feature_columns = _load_feature_columns()
+    model_version = os.getenv("MODEL_VERSION", "unknown")
 
-    if use_local_model:
+    if _should_use_joblib(load_mode=load_mode, model_uri=model_uri):
         pipe = _load_local_joblib_model()
-        model_version = os.getenv("MODEL_VERSION", "remote-joblib")
+        model_version = os.getenv("MODEL_VERSION", "joblib")
     else:
         try:
-            pipe, model_version = _load_mlflow_model(model_name)
+            pipe, model_version = _load_mlflow_model(
+                model_uri=model_uri,
+                model_name=model_name,
+            )
         except Exception:
             pipe = _load_local_joblib_model()
             model_version = os.getenv("MODEL_VERSION", "joblib-fallback")
+
+    threshold = _load_threshold()
+    feature_columns = _load_feature_columns(pipe=pipe)
 
     return ModelBundle(
         pipe=pipe,

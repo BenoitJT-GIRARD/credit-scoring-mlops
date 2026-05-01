@@ -43,12 +43,10 @@ Thumbs.db
 .env.*
 !.env.example
 
-# --- ML / Artifacts ---
+# --- MLflow / local experiment stores ---
 mlruns/
 mlflow/
 mlruns_old/
-artifacts/
-logs/
 *.db
 
 # --- Data (NE JAMAIS committer raw Kaggle) ---
@@ -57,11 +55,32 @@ data/interim/
 data/processed/
 !data/**/.gitkeep
 
-# --- Temporary exports ---
+# --- Generic temporary exports ---
 *.parquet
 *.feather
 *.pkl
 *.joblib
+
+# --- Project artifacts ---
+artifacts/explainability/
+artifacts/reports/
+logs/
+
+# --- Allow only remote deployment model artifacts ---
+!artifacts/
+!artifacts/models/
+!artifacts/models/pipeline.joblib
+!artifacts/models/threshold.json
+!artifacts/models/feature_columns.json
+
+# --- Optional ONNX artifact: keep ignored unless you explicitly decide to ship it ---
+artifacts/models/*.onnx
+
+# --- Reports kept for the project deliverable ---
+!reports/
+!reports/monitoring/
+!reports/performance/
+!reports/screenshots/
 
 # --- Docker local ---
 docker-compose.override.yml

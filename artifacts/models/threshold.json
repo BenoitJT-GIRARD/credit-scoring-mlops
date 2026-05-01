@@ -1,0 +1,6 @@
+{
+  "threshold": 0.49,
+  "cost_fn": 10.0,
+  "cost_fp": 1.0,
+  "selection": "val_optimized_then_refit_on_dev"
+}
