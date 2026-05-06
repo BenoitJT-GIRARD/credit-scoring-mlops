@@ -22,10 +22,12 @@ services:
       API_HOST: 0.0.0.0
       API_PORT: 8000
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/credexp
-      MLFLOW_TRACKING_URI: sqlite:////app/mlflow/mlflow.db
-      MLFLOW_REGISTRY_URI: sqlite:////app/mlflow/mlflow.db
-      MLFLOW_ARTIFACT_ROOT: /app/mlflow/artifacts
-      MODEL_URI: models:/credit_scoring_model/Production
+      MODEL_LOAD_MODE: joblib
+      MODEL_NAME: credit_scoring_model
+      MODEL_VERSION: local-joblib
+      MODEL_JOBLIB_PATH: /app/artifacts/models/pipeline.joblib
+      THRESHOLD_PATH: /app/artifacts/models/threshold.json
+      FEATURE_COLUMNS_PATH: /app/artifacts/models/feature_columns.json
       PROMETHEUS_ENABLED: "true"
     ports:
       - "8000:8000"

@@ -6,14 +6,81 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy-space:
+  test-build-and-deploy:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: credexp
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d credexp"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/credexp
+      API_HOST: 127.0.0.1
+      API_PORT: 8000
+      PROMETHEUS_ENABLED: "false"
+      MODEL_LOAD_MODE: joblib
+      MODEL_NAME: credit_scoring_model
+      MODEL_VERSION: hf-space
+      MODEL_JOBLIB_PATH: artifacts/models/pipeline.joblib
+      THRESHOLD_PATH: artifacts/models/threshold.json
+      FEATURE_COLUMNS_PATH: artifacts/models/feature_columns.json
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          lfs: true
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Sync dependencies
+        run: >
+          uv sync
+          --group dev
+          --group data
+          --group ml
+          --group mlops
+          --group serve
+          --group db
+          --group monitoring
+          --group perf
+
+      - name: Ruff autofix
+        run: uv run ruff check . --fix
+
+      - name: Ruff format
+        run: uv run ruff format .
+
+      - name: Ruff final check
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: Run tests
+        run: uv run pytest -q
+
+      - name: Validate model artifacts
+        run: |
+          test -f artifacts/models/pipeline.joblib
+          test -f artifacts/models/threshold.json
+          test -f artifacts/models/feature_columns.json
+
+      - name: Build Hugging Face Docker image
+        run: docker build -f deploy/huggingface/Dockerfile -t credexp-hf-space:ci .
 
       - name: Prepare Hugging Face Space folder
         run: |
@@ -22,15 +89,19 @@ jobs:
 
           cp deploy/huggingface/README.md _hf_space/README.md
           cp deploy/huggingface/Dockerfile _hf_space/Dockerfile
+
           mkdir -p _hf_space/deploy/huggingface
           cp deploy/huggingface/nginx.conf _hf_space/deploy/huggingface/nginx.conf
           cp deploy/huggingface/start.sh _hf_space/deploy/huggingface/start.sh
 
           cp pyproject.toml _hf_space/pyproject.toml
           cp uv.lock _hf_space/uv.lock
+          cp README.md _hf_space/README.github.md
+
           cp -r src _hf_space/src
           cp -r scripts _hf_space/scripts
           cp -r streamlit_app _hf_space/streamlit_app
+
           mkdir -p _hf_space/artifacts
           cp -r artifacts/models _hf_space/artifacts/models
 
@@ -55,12 +126,9 @@ jobs:
           import os
           from huggingface_hub import HfApi
 
-          token = os.environ["HF_TOKEN"]
-          repo_id = os.environ["HF_SPACE_ID"]
-
-          api = HfApi(token=token)
+          api = HfApi(token=os.environ["HF_TOKEN"])
           api.upload_folder(
-              repo_id=repo_id,
+              repo_id=os.environ["HF_SPACE_ID"],
               repo_type="space",
               folder_path="_hf_space",
               commit_message="Deploy from GitHub Actions",

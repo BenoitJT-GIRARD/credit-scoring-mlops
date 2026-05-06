@@ -30,11 +30,12 @@ jobs:
       API_HOST: 127.0.0.1
       API_PORT: 8000
       PROMETHEUS_ENABLED: "false"
-      MLFLOW_TRACKING_URI: sqlite:///mlflow/mlflow.db
-      MLFLOW_REGISTRY_URI: sqlite:///mlflow/mlflow.db
-      MLFLOW_ARTIFACT_ROOT: mlflow/artifacts
-      MODEL_URI: models:/credit_scoring_model/Production
-      EVIDENTLY_REFERENCE_PATH: data/processed/reference.parquet
+      MODEL_LOAD_MODE: joblib
+      MODEL_NAME: credit_scoring_model
+      MODEL_VERSION: ci-joblib
+      MODEL_JOBLIB_PATH: artifacts/models/pipeline.joblib
+      THRESHOLD_PATH: artifacts/models/threshold.json
+      FEATURE_COLUMNS_PATH: artifacts/models/feature_columns.json
 
     steps:
       - name: Checkout repository
@@ -64,16 +65,16 @@ jobs:
           uv run python --version
           uv run ruff --version
 
-      - name: Ruff lint autofix
+      - name: Ruff autofix
         run: uv run ruff check . --fix
 
-      - name: Ruff format autofix
+      - name: Ruff format
         run: uv run ruff format .
 
-      - name: Ruff final lint check
+      - name: Ruff final check
         run: uv run ruff check .
 
-      - name: Ruff final format check
+      - name: Ruff format check
         run: uv run ruff format --check .
 
       - name: Run tests
@@ -90,5 +91,5 @@ jobs:
       - name: Validate docker compose file
         run: docker compose config
 
-      - name: Build API image
-        run: docker build -f docker/api.ci.Dockerfile -t credexp-api:ci .
+      - name: Build local API image
+        run: docker build -f docker/api.Dockerfile -t credexp-api:ci .

@@ -1,0 +1,6 @@
+{
+  "n_reference": 20000,
+  "n_current": 128,
+  "n_features": 796,
+  "report_path": "reports\\monitoring\\evidently_drift_notebook.html"
+}

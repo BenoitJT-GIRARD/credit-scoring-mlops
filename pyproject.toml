@@ -97,7 +97,14 @@ exclude = ["notebooks"]
 quote-style = "double"
 
 [tool.pytest.ini_options]
-addopts = "-ra --cov=credexp --cov-report=term-missing"
+addopts = """
+-ra
+--cov=credexp
+--cov-report=term-missing
+--cov-report=xml:reports/coverage/coverage.xml
+--cov-report=html:reports/coverage/html
+--cov-fail-under=20
+"""
 testpaths = ["tests"]
 pythonpath = ["src"]
 
