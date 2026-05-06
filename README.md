@@ -1,67 +1,109 @@
 # Credit Scoring MLOps Project
 
-Projet de déploiement et de monitoring d'un modèle de scoring crédit dans un contexte de production simulé.
+Projet de déploiement et de monitoring d'un modèle de scoring crédit dans un contexte de production simulé, basé sur le dataset **Home Credit Default Risk**.
 
-Ce projet a été réalisé dans le cadre d'un exercice MLOps autour du dataset **Home Credit Default Risk**. Il couvre l'ensemble du cycle de vie d'un modèle de machine learning, depuis la préparation des données jusqu'au déploiement local, au monitoring et à l'analyse de performance.
+Le projet couvre le cycle de vie complet d'un modèle de machine learning : préparation des données, entraînement, tracking, versioning, déploiement local et distant, monitoring, analyse de drift, optimisation de performance, tests automatisés et CI/CD.
 
-## 1. Objectif du projet
+## 1. Objectif
 
 L'objectif est de déployer un modèle de scoring crédit capable d'attribuer en quasi temps réel une probabilité de défaut à un client, puis de surveiller son comportement en production.
 
-Le projet ne se limite pas à la modélisation. Il intègre aussi les aspects d'industrialisation, de monitoring, de qualité logicielle, de conteneurisation et de reproductibilité.
+Le projet intègre :
+
+- industrialisation du modèle ;
+- API d'inférence ;
+- conteneurisation ;
+- stockage des prédictions ;
+- monitoring technique ;
+- monitoring de drift ;
+- tests automatisés ;
+- CI/CD ;
+- déploiement distant ;
+- documentation et reproductibilité.
 
 ## 2. Fonctionnalités principales
 
-Le projet inclut :
+- Feature engineering Home Credit.
+- Entraînement, comparaison et sélection de modèles.
+- Tracking MLflow.
+- Tuning Optuna.
+- Entraînement final et export d'un pipeline d'inférence.
+- Versioning MLflow Model Registry.
+- Explainability globale et locale avec feature importance et SHAP.
+- API FastAPI pour le scoring.
+- Interface utilisateur Streamlit.
+- Stockage PostgreSQL local.
+- Stockage distant Supabase.
+- Monitoring Prometheus / Grafana.
+- Analyse de drift avec Evidently.
+- Profiling et benchmarks de performance.
+- PoC ONNX Runtime.
+- Tests automatisés avec pytest et pytest-cov.
+- CI/CD GitHub Actions.
+- Déploiement distant Hugging Face Spaces.
 
-- feature engineering sur les données Home Credit ;
-- entraînement et sélection de modèles ;
-- tracking des expérimentations avec MLflow ;
-- tuning avec Optuna ;
-- entraînement final et export d'un pipeline d'inférence ;
-- versioning du modèle dans MLflow Model Registry ;
-- explainability globale et locale avec feature importance et SHAP ;
-- API FastAPI pour le scoring ;
-- interface utilisateur Streamlit ;
-- stockage des prédictions dans PostgreSQL ;
-- monitoring technique avec Prometheus et Grafana ;
-- analyse de data drift avec Evidently ;
-- profiling et benchmarks de performance ;
-- benchmark ONNX Runtime ;
-- tests automatisés et pipeline CI/CD GitHub Actions.
+## 3. Architecture
 
-## 3. Architecture générale
-
-Flux principal :
+### 3.1 Stack locale
 
 ```text
-MLflow Model Registry
+Docker Compose
+  ├── FastAPI API
+  ├── PostgreSQL
+  ├── Streamlit
+  ├── Prometheus
+  └── Grafana
+```
+
+Flux local :
+
+```text
+Model artifacts / MLflow registry
         ↓
 FastAPI inference API
         ↓
 PostgreSQL prediction logs
         ↓
 Monitoring:
-  - Prometheus / Grafana for technical metrics
-  - Evidently for data drift
-  - Streamlit for user and developer dashboards
+  - Streamlit developer dashboard
+  - Prometheus / Grafana
+  - Evidently data drift report
 ```
 
-Composants :
+### 3.2 Déploiement distant
+
+```text
+Hugging Face Docker Space
+  ├── Nginx public port 7860
+  ├── Streamlit at /
+  ├── FastAPI at /api
+  ├── embedded joblib model artifacts
+  └── Supabase PostgreSQL logging
+```
+
+Le déploiement distant expose une interface Streamlit, une API FastAPI documentée via Swagger, le modèle embarqué dans l'image Docker et une base Supabase pour stocker les prédictions.
+
+## 4. Composants techniques
 
 | Composant | Rôle |
 |---|---|
-| MLflow | Tracking des expériences et registre du modèle |
+| MLflow | Tracking des expériences et registry pendant l'entraînement |
+| LightGBM | Modèle final retenu |
 | FastAPI | API de scoring et documentation Swagger |
-| PostgreSQL | Stockage des inputs, outputs, latence et métadonnées |
-| Streamlit | Interface utilisateur et monitoring simplifié |
-| Prometheus | Collecte des métriques techniques exposées par l'API |
+| Streamlit | Interface utilisateur et dashboard simplifié |
+| PostgreSQL | Stockage local des prédictions |
+| Supabase | Stockage PostgreSQL distant |
+| Prometheus | Collecte des métriques techniques |
 | Grafana | Visualisation des métriques techniques |
-| Evidently | Analyse de dérive des données |
-| Docker Compose | Orchestration locale de la stack complète |
-| GitHub Actions | Tests, lint, format et build Docker en CI |
+| Evidently | Analyse de drift |
+| Docker Compose | Orchestration locale |
+| Hugging Face Spaces | Déploiement distant public |
+| GitHub Actions | CI/CD |
+| pytest / pytest-cov | Tests automatisés et couverture |
+| cProfile | Profiling |
+| ONNX Runtime | PoC d'optimisation |
 
-## 4. Structure du dépôt
+## 5. Structure du dépôt
 
 ```text
 src/credexp/
@@ -71,7 +113,6 @@ src/credexp/
     build_features.py
   modeling/
     dataset.py
-    export.py
     metrics.py
     pipelines.py
     preprocess.py
@@ -81,7 +122,6 @@ src/credexp/
     explainability.py
   serving/
     api.py
-    inference.py
     model_loader.py
     schemas.py
   db/
@@ -91,14 +131,11 @@ src/credexp/
     crud.py
   monitoring/
     drift.py
-    metrics.py
   utils/
     logging.py
-    profiling.py
 
 scripts/
   build_features.py
-  export_inference_artifacts.py
   train_mlflow.py
   train_final.py
   tune_optuna.py
@@ -124,6 +161,16 @@ docker/
   prometheus/
     prometheus.yml
 
+deploy/huggingface/
+  Dockerfile
+  README.md
+  nginx.conf
+  start.sh
+
+.github/workflows/
+  ci.yml
+  deploy_huggingface.yml
+
 notebooks/
   01_build_features.ipynb
   02_eda.ipynb
@@ -136,35 +183,38 @@ notebooks/
 reports/
   monitoring/
   performance/
+  coverage/
   screenshots/
 
-data/
-  raw/
-  processed/
+artifacts/models/
+  pipeline.joblib
+  threshold.json
+  feature_columns.json
 
-artifacts/
-  models/
+api_examples/
+  curl_examples.md
+  test_api.ps1
 
-mlflow/
-  mlflow.db
-
+docker-compose.yml
+README.md
 demo.md
 ```
 
-## 5. Modèle retenu
+## 6. Modèle retenu
 
 Le modèle retenu est un **LightGBM** optimisé selon un coût métier personnalisé.
 
 Étapes réalisées :
 
-1. validation croisée stratifiée ;
-2. prise en compte du déséquilibre de classe ;
-3. optimisation du seuil de décision selon un coût métier ;
-4. tuning avec Optuna ;
-5. entraînement final sur l'ensemble de développement ;
-6. évaluation sur un holdout jamais vu ;
-7. versioning dans MLflow Model Registry ;
-8. analyse d'explicabilité globale et locale.
+1. construction des features à partir des fichiers Home Credit ;
+2. validation croisée stratifiée ;
+3. prise en compte du déséquilibre de classe ;
+4. optimisation du seuil de décision selon un coût métier ;
+5. tuning avec Optuna ;
+6. entraînement final sur l'ensemble de développement ;
+7. évaluation sur un holdout jamais vu ;
+8. versioning dans MLflow Model Registry ;
+9. analyse d'explicabilité globale et locale.
 
 Nom du modèle dans MLflow :
 
@@ -178,9 +228,26 @@ Version retenue :
 Version 2 / Production
 ```
 
-## 6. API FastAPI
+## 7. Artefacts de serving
 
-### Endpoints disponibles
+Pour le serving local et distant, le modèle est embarqué sous forme d'artefacts minimaux :
+
+```text
+artifacts/models/
+  pipeline.joblib
+  threshold.json
+  feature_columns.json
+```
+
+- `pipeline.joblib` : pipeline complet d'inférence ;
+- `threshold.json` : seuil métier optimisé ;
+- `feature_columns.json` : ordre exact des features attendu par le modèle.
+
+MLflow reste utilisé pour le tracking, la comparaison des modèles et le registry pendant la phase d'entraînement. Le déploiement utilise ensuite les artefacts exportés pour garantir un conteneur autonome et reproductible.
+
+## 8. API FastAPI
+
+### 8.1 Endpoints locaux
 
 | Endpoint | Méthode | Description |
 |---|---|---|
@@ -191,13 +258,32 @@ Version 2 / Production
 | `/metrics` | GET | Expose les métriques Prometheus |
 | `/docs` | GET | Documentation Swagger interactive |
 
-### Documentation interactive
+Documentation locale :
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-### Exemple de payload
+### 8.2 Endpoints distants Hugging Face
+
+URL distante :
+
+```text
+https://<owner>-credexp.hf.space
+```
+
+Routes :
+
+| Route | Description |
+|---|---|
+| `/` | Interface Streamlit |
+| `/api/health` | Healthcheck FastAPI |
+| `/api/docs` | Swagger FastAPI |
+| `/api/predict` | Prédiction unitaire |
+| `/api/predict_batch` | Prédictions batch |
+| `/api/metrics` | Métriques Prometheus exposées par l'API |
+
+### 8.3 Exemple de payload
 
 ```json
 {
@@ -210,22 +296,22 @@ http://127.0.0.1:8000/docs
 }
 ```
 
-### Exemple de réponse
+### 8.4 Exemple de réponse
 
 ```json
 {
   "proba_default": 0.3197,
   "decision": 0,
-  "threshold": 0.42,
+  "threshold": 0.49,
   "model_name": "credit_scoring_model",
-  "model_version": "2",
+  "model_version": "hf-space",
   "latency_ms": 46.02
 }
 ```
 
-## 7. Base de données PostgreSQL
+## 9. PostgreSQL et Supabase
 
-Chaque appel API est stocké dans la table `predictions`.
+Chaque appel API peut être stocké dans la table `predictions`.
 
 Colonnes principales :
 
@@ -244,20 +330,26 @@ Colonnes principales :
 - `input_payload` ;
 - `output_payload`.
 
-Cette table permet :
+Supabase est utilisé comme base PostgreSQL distante. La connexion est configurée par variable secrète :
 
-- l'audit des prédictions ;
-- le monitoring de la latence ;
-- le suivi des scores ;
-- la détection de drift ;
-- l'analyse des erreurs.
+```text
+DATABASE_URL
+```
 
-## 8. Interface Streamlit
+Format attendu :
 
-L'application Streamlit propose deux vues :
+```text
+postgresql+psycopg://USER:PASSWORD@HOST:PORT/postgres?sslmode=require
+```
+
+Sur Hugging Face, l'utilisation du **Supabase Session Pooler** est recommandée afin d'éviter les problèmes de connexion directe IPv6.
+
+## 10. Streamlit
+
+Pages :
 
 1. **Scoring Client** : interface utilisateur pour envoyer un payload à l'API et afficher le score ;
-2. **Monitoring Dev** : vue synthétique des dernières prédictions, scores et latences stockés dans PostgreSQL.
+2. **Monitoring Dev** : vue synthétique des dernières prédictions, scores et latences stockés dans PostgreSQL ou Supabase.
 
 URL locale :
 
@@ -265,31 +357,24 @@ URL locale :
 http://127.0.0.1:8501
 ```
 
-## 9. Monitoring technique
+URL remote :
+
+```text
+https://<owner>-credexp.hf.space
+```
+
+## 11. Monitoring technique
 
 ### Prometheus
 
-Prometheus collecte les métriques exposées par FastAPI sur `/metrics`.
-
-URL locale :
-
 ```text
 http://127.0.0.1:9090
-```
-
-Page importante :
-
-```text
 http://127.0.0.1:9090/targets
 ```
 
 La cible `credexp_api` doit être `UP`.
 
 ### Grafana
-
-Grafana visualise les métriques collectées par Prometheus.
-
-URL locale :
 
 ```text
 http://127.0.0.1:3000
@@ -314,14 +399,14 @@ Panels recommandés :
 - statuts HTTP ;
 - latence moyenne de l'API.
 
-## 10. Monitoring de drift
+## 12. Monitoring de drift
 
 Le drift est analysé avec Evidently.
 
 Sources utilisées :
 
 - référence : `data/processed/reference.parquet` ;
-- production : inputs stockés dans PostgreSQL via les appels API.
+- production : inputs stockés dans PostgreSQL ou Supabase via les appels API.
 
 Commande :
 
@@ -341,15 +426,7 @@ Notebook associé :
 notebooks/06_drift_monitoring.ipynb
 ```
 
-## 11. Performance et optimisation
-
-Le système a été évalué à plusieurs niveaux :
-
-1. inférence locale du pipeline sklearn ;
-2. latence API FastAPI de bout en bout ;
-3. inférence batch vs inférence unitaire ;
-4. profiling avec `cProfile` ;
-5. benchmark ONNX Runtime.
+## 13. Performance et optimisation
 
 Commandes :
 
@@ -380,22 +457,17 @@ Notebook associé :
 notebooks/07_performance_optimization.ipynb
 ```
 
-## 12. Lancement local complet
+## 14. Lancement local complet
 
-### Pré-requis
+Pré-requis : Python 3.12, `uv`, Docker Desktop, Git.
 
-- Python 3.12 ;
-- `uv` ;
-- Docker Desktop ;
-- Git.
-
-### Installation Python
+Installation :
 
 ```powershell
 uv sync --all-groups
 ```
 
-### Lancement de la stack Docker
+Lancement :
 
 ```powershell
 docker compose down -v
@@ -404,30 +476,23 @@ Start-Sleep -Seconds 30
 docker compose ps
 ```
 
-### Initialisation de la base
-
-```powershell
-$env:DATABASE_URL="postgresql+psycopg://postgres:postgres@localhost:5432/credexp"
-uv run python scripts/init_db.py
-```
-
-### Génération de prédictions de démo
+Génération de prédictions de démonstration :
 
 ```powershell
 1..50 | ForEach-Object { .\api_examples\test_api.ps1 }
 ```
 
-### Génération du drift et des benchmarks
+Vérification PostgreSQL :
 
 ```powershell
-uv run python scripts/monitoring_drift.py --limit 500
-uv run python scripts/profile_inference.py
-uv run python scripts/benchmark_api.py
-uv run python scripts/benchmark_batching.py
-uv run python scripts/benchmark_onnx.py
+docker exec -it credexp_db psql -U postgres -d credexp -c "\dt"
 ```
 
-### Interfaces locales
+```powershell
+docker exec -it credexp_db psql -U postgres -d credexp -c "SELECT created_at, sk_id_curr, model_version, proba_default, decision, latency_ms FROM predictions ORDER BY created_at DESC LIMIT 10;"
+```
+
+Interfaces locales :
 
 | Service | URL |
 |---|---|
@@ -435,55 +500,132 @@ uv run python scripts/benchmark_onnx.py
 | Streamlit | http://127.0.0.1:8501 |
 | Prometheus | http://127.0.0.1:9090 |
 | Grafana | http://127.0.0.1:3000 |
+| Prometheus targets | http://127.0.0.1:9090/targets |
 
-## 13. Tests et qualité
+## 15. Déploiement distant Hugging Face
 
-### Lint et format
+Fichiers principaux :
+
+```text
+deploy/huggingface/Dockerfile
+deploy/huggingface/README.md
+deploy/huggingface/nginx.conf
+deploy/huggingface/start.sh
+```
+
+Routage :
+
+```text
+/              -> Streamlit
+/api/health    -> FastAPI healthcheck
+/api/docs      -> Swagger
+/api/predict   -> prédiction
+/api/metrics   -> métriques
+```
+
+Le déploiement est automatisé par :
+
+```text
+.github/workflows/deploy_huggingface.yml
+```
+
+Secrets nécessaires :
+
+```text
+HF_TOKEN
+HF_SPACE_ID
+DATABASE_URL
+```
+
+## 16. Tests, qualité et coverage
+
+Lint :
 
 ```powershell
 uv run ruff check .
 uv run ruff format --check .
 ```
 
-### Tests automatisés
+Tests :
 
 ```powershell
 uv run pytest -q
 ```
 
-### Docker Compose
+La configuration génère :
 
-```powershell
-docker compose config
+```text
+reports/coverage/coverage.xml
+reports/coverage/html/
 ```
 
-## 14. CI/CD
+Un seuil minimal de couverture est défini à 20 %. Le coverage observé est d'environ 27 %. Ce seuil est volontairement modéré car le dépôt contient du code expérimental, des notebooks et des scripts de training. Les tests ciblent prioritairement les composants critiques de production : API, validation d'entrée, I/O, schémas et logique métier.
 
-Le dépôt contient un workflow GitHub Actions qui :
+## 17. CI/CD
 
-- se déclenche sur `push` et `pull_request` ;
-- installe Python et `uv` ;
-- synchronise les dépendances ;
-- exécute Ruff ;
-- exécute Pytest ;
-- valide la configuration Docker Compose ;
-- construit l'image Docker de l'API.
+Le projet contient deux workflows GitHub Actions.
 
-Fichier :
+### CI générale
 
 ```text
 .github/workflows/ci.yml
 ```
 
-## 15. Démonstration
+Ce workflow :
 
-Guide de démonstration :
+- se déclenche sur `push` et `pull_request` ;
+- installe Python et `uv` ;
+- synchronise les dépendances ;
+- exécute Ruff ;
+- vérifie le formatage ;
+- lance Pytest avec coverage ;
+- valide Docker Compose ;
+- construit l'image Docker locale de l'API ;
+- upload le rapport de couverture comme artifact.
+
+### Déploiement Hugging Face
 
 ```text
-demo.md
+.github/workflows/deploy_huggingface.yml
 ```
 
-## 16. Contenu principal
+Ce workflow :
+
+- se déclenche sur `push` vers `develop` et manuellement via `workflow_dispatch` ;
+- relance les contrôles qualité ;
+- relance les tests avec coverage ;
+- vérifie les artefacts modèle ;
+- construit l'image Docker Hugging Face ;
+- prépare le dossier du Space ;
+- déploie automatiquement vers Hugging Face Spaces avec `HF_TOKEN`.
+
+## 18. Captures d'écran
+
+Captures recommandées :
+
+```text
+01_github_history.png
+02_github_actions_success.png
+03_fastapi_docs.png
+04_fastapi_predict_response.png
+05_streamlit_scoring.png
+06_streamlit_monitoring.png
+07_postgres_predictions.png
+08_prometheus_target_up.png
+09_grafana_dashboard.png
+10_evidently_drift_report.png
+11_mlflow_registry_model_v2.png
+12_performance_notebook.png
+13_onnx_benchmark_json.png
+14_supabase_predictions.png
+15_huggingface_space_streamlit.png
+16_huggingface_space_api_docs.png
+17_github_action_deploy_hf_success.png
+18_pytest_coverage_report.png
+19_supabase_prediction_from_hf.png
+```
+
+## 19. Contenu principal
 
 - historique Git ;
 - scripts API ;
@@ -491,18 +633,28 @@ demo.md
 - Docker Compose ;
 - tests automatisés ;
 - pipeline CI/CD ;
+- déploiement Hugging Face ;
 - notebooks de monitoring et performance ;
 - rapport Evidently ;
-- screenshots de PostgreSQL, Prometheus, Grafana, FastAPI et Streamlit ;
+- screenshots de PostgreSQL, Supabase, Prometheus, Grafana, FastAPI, Streamlit, GitHub Actions et Hugging Face ;
 - README et documentation de démonstration.
 
-## 17. Perspectives
+## 20. Points de vigilance et limites
 
-Améliorations possibles :
+- Les données Kaggle brutes ne sont pas versionnées dans Git.
+- Les secrets ne sont jamais commités.
+- Le drift est interprété qualitativement lorsque peu de prédictions sont disponibles.
+- Le seuil de coverage est volontairement modéré.
+- Le déploiement Hugging Face est une démonstration réaliste, mais ne remplace pas une infrastructure cloud production complète avec autoscaling et alerting avancé.
 
-- alertes automatiques Prometheus/Grafana ;
-- monitoring de performance modèle sur données labellisées récentes ;
-- retraining automatisé.
+## 21. Perspectives
+
+- Alertes Prometheus/Grafana.
+- Monitoring de performance modèle sur données labellisées récentes.
+- Retraining automatisé.
+- Séparation staging/production.
+- Versioning avancé des jeux de référence.
+- Tests end-to-end sur environnement de staging.
 
 ## Auteur
 
