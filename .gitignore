@@ -76,11 +76,15 @@ logs/
 # --- Optional ONNX artifact: keep ignored unless you explicitly decide to ship it ---
 artifacts/models/*.onnx
 
-# --- Reports kept for the project deliverable ---
+# --- Reports kept in the repository ---
+# The metadata of each monitoring run is versioned; the rendered HTML is not. Evidently
+# reports embed their data and one reached 34 MB, which has no business in a git history
+# when scripts/monitoring_drift.py regenerates it on demand.
 !reports/
 !reports/monitoring/
 !reports/performance/
 !reports/screenshots/
+reports/monitoring/*.html
 
 # --- Docker local ---
 docker-compose.override.yml
