@@ -1,6 +1,6 @@
 import numpy as np
 
-from credexp.modeling.threshold import find_best_threshold
+from credexp.modeling.threshold import find_best_threshold, split_threshold_cost
 
 
 def test_find_best_threshold_returns_valid_range():
@@ -9,3 +9,28 @@ def test_find_best_threshold_returns_valid_range():
     thr, cost = find_best_threshold(y_true, y_proba)
     assert 0.0 < thr < 1.0
     assert cost >= 0.0
+
+
+def test_split_threshold_cost_reports_both_estimates_and_their_gap() -> None:
+    rng = np.random.default_rng(0)
+    y = rng.binomial(1, 0.2, size=400)
+    # Probabilities correlated with the label but noisy, so a threshold tuned on one
+    # half is genuinely a little wrong on the other.
+    proba = np.clip(y * 0.4 + rng.normal(0.3, 0.2, size=400), 0.01, 0.99)
+
+    out = split_threshold_cost(y, proba, cost_fn=10.0, cost_fp=1.0, random_state=0)
+
+    assert out["honest"] >= out["optimistic"]
+    assert out["optimism"] == out["honest"] - out["optimistic"]
+    assert 0.0 <= out["threshold_a"] <= 1.0
+
+
+def test_split_threshold_cost_is_reproducible() -> None:
+    rng = np.random.default_rng(1)
+    y = rng.binomial(1, 0.2, size=300)
+    proba = np.clip(y * 0.4 + rng.normal(0.3, 0.2, size=300), 0.01, 0.99)
+
+    first = split_threshold_cost(y, proba, 10.0, 1.0, random_state=7)
+    second = split_threshold_cost(y, proba, 10.0, 1.0, random_state=7)
+
+    assert first == second
