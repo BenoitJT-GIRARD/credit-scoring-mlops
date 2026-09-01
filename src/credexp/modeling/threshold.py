@@ -63,3 +63,32 @@ def split_threshold_cost(
         "threshold_a": float(thr_a),
         "threshold_b": float(thr_b),
     }
+
+
+def threshold_shift(
+    y_true: np.ndarray,
+    y_proba: np.ndarray,
+    shipped_threshold: float,
+    cost_fn: float,
+    cost_fp: float,
+) -> dict:
+    """Compare the shipped threshold to the one this sample would have chosen.
+
+    The optimal threshold is computed for information only. Adopting it would spend the
+    holdout, which exists precisely so that no decision is fitted to it.
+    """
+    y_true = np.asarray(y_true)
+    y_proba = np.asarray(y_proba)
+    n = len(y_true)
+
+    optimal_threshold, optimal_cost = find_best_threshold(y_true, y_proba, cost_fn, cost_fp)
+    shipped_cost = business_cost(y_true, y_proba, shipped_threshold, cost_fn, cost_fp)
+
+    return {
+        "shipped_threshold": float(shipped_threshold),
+        "optimal_threshold": float(optimal_threshold),
+        "shift": float(optimal_threshold - shipped_threshold),
+        "shipped_cost": float(shipped_cost / n),
+        "optimal_cost": float(optimal_cost / n),
+        "regret": float((shipped_cost - optimal_cost) / n),
+    }

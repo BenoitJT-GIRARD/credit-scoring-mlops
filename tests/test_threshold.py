@@ -1,6 +1,10 @@
 import numpy as np
 
-from credexp.modeling.threshold import find_best_threshold, split_threshold_cost
+from credexp.modeling.threshold import (
+    find_best_threshold,
+    split_threshold_cost,
+    threshold_shift,
+)
 
 
 def test_find_best_threshold_returns_valid_range():
@@ -34,3 +38,23 @@ def test_split_threshold_cost_is_reproducible() -> None:
     second = split_threshold_cost(y, proba, 10.0, 1.0, random_state=7)
 
     assert first == second
+
+
+def test_threshold_shift_reports_the_regret_of_the_shipped_threshold() -> None:
+    y = np.array([0, 0, 0, 1, 1, 1, 0, 1])
+    proba = np.array([0.1, 0.2, 0.3, 0.7, 0.8, 0.9, 0.35, 0.65])
+
+    out = threshold_shift(y, proba, shipped_threshold=0.49, cost_fn=10.0, cost_fp=1.0)
+
+    assert out["shipped_threshold"] == 0.49
+    assert out["regret"] >= 0.0
+    assert out["shift"] == out["optimal_threshold"] - 0.49
+
+
+def test_threshold_shift_has_no_regret_when_the_shipped_threshold_is_optimal() -> None:
+    y = np.array([0, 0, 1, 1])
+    proba = np.array([0.1, 0.2, 0.8, 0.9])
+
+    out = threshold_shift(y, proba, shipped_threshold=0.5, cost_fn=10.0, cost_fp=1.0)
+
+    assert out["regret"] == 0.0
