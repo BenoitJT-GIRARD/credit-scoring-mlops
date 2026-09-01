@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
+import mlflow
 import numpy as np
 from imblearn.pipeline import Pipeline as ImbPipeline
 from imblearn.under_sampling import RandomUnderSampler
@@ -10,7 +11,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 from sklearn.neural_network import MLPClassifier
 
-import mlflow
 from credexp.config import settings
 from credexp.modeling.metrics import evaluate_binary
 from credexp.modeling.pipelines import make_numeric_steps
@@ -107,6 +107,18 @@ def _make_pipeline(model_name: str, activation: str | None, cfg: TrainConfig):
 
 
 def run_cv(X, y, model_name: str, activation: str | None, cfg: TrainConfig):
+    """Cross-validate a model family and return its selection metrics.
+
+    Read `business_cost_mean` and `best_threshold_mean` as **selection diagnostics, not
+    as an expected cost.** The threshold is chosen on the validation fold and the cost is
+    then measured on that same fold, so the figure is the minimum achievable there rather
+    than an out-of-sample estimate. The bias applies equally to every model compared, so
+    the ranking holds; the absolute value does not.
+
+    The cost that can be quoted is the one `scripts/train_final.py` measures on the
+    holdout, which never takes part in choosing the threshold. `roc_auc` and `pr_auc` are
+    threshold-free and unaffected.
+    """
     skf = StratifiedKFold(n_splits=cfg.n_splits, shuffle=True, random_state=cfg.random_state)
 
     aucs, pr_aucs, thresholds, costs = [], [], [], []
