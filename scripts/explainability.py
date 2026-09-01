@@ -3,10 +3,10 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import mlflow
 import pandas as pd
 from mlflow.tracking import MlflowClient
 
-import mlflow
 from credexp.modeling.explainability import (
     ExplainConfig,
     run_explainability,

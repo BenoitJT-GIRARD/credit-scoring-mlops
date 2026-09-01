@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import joblib
+import mlflow
 import pandas as pd
 from mlflow.tracking import MlflowClient
 
-import mlflow
 from credexp.config import settings
 from credexp.data.io import processed_dir
 
