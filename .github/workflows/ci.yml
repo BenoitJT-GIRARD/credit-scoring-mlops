@@ -66,13 +66,10 @@ jobs:
           uv run python --version
           uv run ruff --version
 
-      - name: Ruff autofix
-        run: uv run ruff check . --fix
-
-      - name: Ruff format
-        run: uv run ruff format .
-
-      - name: Ruff final check
+      # No autofix step here. Fixing the code and then checking it means the check can
+      # never fail on anything fixable — which is how six import-ordering errors sat in
+      # the repository under a green pipeline.
+      - name: Ruff check
         run: uv run ruff check .
 
       - name: Ruff format check
