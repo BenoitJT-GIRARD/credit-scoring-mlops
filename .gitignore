@@ -27,6 +27,8 @@ env/
 .ipynb_checkpoints/
 *.nbconvert.ipynb
 notebooks/reports/monitoring/*.html
+# Coverage output is rewritten by every test run: it dirties the tree for no gain.
+reports/coverage/
 notebooks/reports/monitoring/*.json
 
 # --- IDEs ---
