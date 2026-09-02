@@ -1,0 +1,158 @@
+{
+  "n_holdout": 30751,
+  "default_rate": 0.08074534161490683,
+  "shipped_threshold": 0.49,
+  "cost_ratio": 10.0,
+  "optimism": {
+    "optimistic": 0.48227642276422766,
+    "honest": 0.48520325203252035,
+    "optimism": 0.0029268292682926855,
+    "threshold_a": 0.5,
+    "threshold_b": 0.54
+  },
+  "threshold_shift": {
+    "shipped_threshold": 0.49,
+    "optimal_threshold": 0.48000000000000004,
+    "shift": -0.009999999999999953,
+    "shipped_cost": 0.4887971122890313,
+    "optimal_cost": 0.4860329745374134,
+    "regret": 0.0027641377516178334
+  },
+  "cost_interval": {
+    "median": 0.4893174205716887,
+    "low": 0.4721448082989171,
+    "high": 0.5067818932717635,
+    "n_resamples": 1000
+  },
+  "sensitivity": [
+    {
+      "ratio": 1,
+      "threshold": 0.89,
+      "cost_per_row": 0.07957464797892752
+    },
+    {
+      "ratio": 2,
+      "threshold": 0.81,
+      "cost_per_row": 0.15144222952099118
+    },
+    {
+      "ratio": 3,
+      "threshold": 0.74,
+      "cost_per_row": 0.21348899222789502
+    },
+    {
+      "ratio": 5,
+      "threshold": 0.63,
+      "cost_per_row": 0.314038567851452
+    },
+    {
+      "ratio": 10,
+      "threshold": 0.48000000000000004,
+      "cost_per_row": 0.4860329745374134
+    },
+    {
+      "ratio": 15,
+      "threshold": 0.36000000000000004,
+      "cost_per_row": 0.5909401320282267
+    },
+    {
+      "ratio": 20,
+      "threshold": 0.34,
+      "cost_per_row": 0.6595232675360151
+    },
+    {
+      "ratio": 30,
+      "threshold": 0.25,
+      "cost_per_row": 0.7559754154336444
+    },
+    {
+      "ratio": 50,
+      "threshold": 0.18000000000000002,
+      "cost_per_row": 0.8432246105817697
+    }
+  ],
+  "fairness_gender": [
+    {
+      "group": "F",
+      "n": 20380,
+      "default_rate": 0.06943081452404318,
+      "refusal_rate": 0.2324828263002944,
+      "fnr": 0.3858657243816254,
+      "fpr": 0.20400738201950963,
+      "cost_per_row": 0.45775269872423946
+    },
+    {
+      "group": "M",
+      "n": 10371,
+      "default_rate": 0.10297946196123807,
+      "refusal_rate": 0.3780734741105004,
+      "fnr": 0.24250936329588016,
+      "fpr": 0.3345157476082984,
+      "cost_per_row": 0.549802333429756
+    }
+  ],
+  "fairness_age": [
+    {
+      "group": "30-39",
+      "n": 8144,
+      "default_rate": 0.09332023575638507,
+      "refusal_rate": 0.33963654223968565,
+      "fnr": 0.25394736842105264,
+      "fpr": 0.2978060671722644,
+      "cost_per_row": 0.5069990176817288
+    },
+    {
+      "group": "40-49",
+      "n": 7773,
+      "default_rate": 0.07834812813585489,
+      "refusal_rate": 0.25794416570178824,
+      "fnr": 0.32676518883415434,
+      "fpr": 0.22264098269123395,
+      "cost_per_row": 0.4612118873021999
+    },
+    {
+      "group": "50-59",
+      "n": 6844,
+      "default_rate": 0.06458211572180012,
+      "refusal_rate": 0.1940385739333723,
+      "fnr": 0.45701357466063347,
+      "fpr": 0.16994689159637613,
+      "cost_per_row": 0.45412039742840443
+    },
+    {
+      "group": "60+",
+      "n": 3641,
+      "default_rate": 0.05053556715188135,
+      "refusal_rate": 0.12469101895083769,
+      "fnr": 0.5869565217391305,
+      "fpr": 0.10934336129592132,
+      "cost_per_row": 0.4004394397143642
+    },
+    {
+      "group": "<30",
+      "n": 4349,
+      "default_rate": 0.11220970338008737,
+      "refusal_rate": 0.48424925270177055,
+      "fnr": 0.21106557377049182,
+      "fpr": 0.44573944573944574,
+      "cost_per_row": 0.6325592090135663
+    }
+  ],
+  "baselines": [
+    {
+      "name": "accept-all",
+      "cost_per_row": 0.8074534161490683,
+      "note": "Every defaulter is missed; no good applicant is refused."
+    },
+    {
+      "name": "reject-all",
+      "cost_per_row": 0.9192546583850931,
+      "note": "No defaulter is missed; every good applicant is refused."
+    },
+    {
+      "name": "random-at-base-rate",
+      "cost_per_row": 0.81697603329973,
+      "note": "Mean of 100 draws at the observed default rate."
+    }
+  ]
+}
