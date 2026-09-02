@@ -34,13 +34,11 @@ def load_reference_dataframe() -> pd.DataFrame:
 
 
 def load_current_dataframe(limit: int = 5000) -> pd.DataFrame:
-    """
-    Charge les dernières requêtes depuis PostgreSQL.
-    On suppose que input_payload ressemble à:
-    {
-      "sk_id_curr": ...,
-      "features": { ... }
-    }
+    """Load the most recent requests from PostgreSQL.
+
+    ``input_payload`` is expected to look like::
+
+        {"sk_id_curr": ..., "features": {...}}
     """
     engine = create_engine(settings.database_url, pool_pre_ping=True)
 
@@ -76,10 +74,10 @@ def align_reference_and_current(
     reference_df: pd.DataFrame,
     current_df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Aligne les colonnes communes entre reference et current.
-    On retire TARGET si présent.
-    On retire created_at car absent de la référence et non utile pour le drift de features.
+    """Keep only the columns the reference and the current data have in common.
+
+    TARGET is dropped when present, and so is created_at: it is absent from the reference
+    and says nothing about feature drift.
     """
     ref = reference_df.copy()
     cur = current_df.copy()
@@ -101,10 +99,10 @@ def align_reference_and_current(
 
 
 def infer_data_definition(reference_df: pd.DataFrame) -> DataDefinition:
-    """
-    Définition minimale des types pour Evidently.
-    On classe les colonnes object/category/bool en catégorielles,
-    le reste en numériques.
+    """Minimal type definition for Evidently.
+
+    Object, category and bool columns are treated as categorical, everything else as
+    numerical.
     """
     numerical_columns = []
     categorical_columns = []
