@@ -1,406 +1,212 @@
-# Credit Scoring MLOps Project
+# Credit Scoring MLOps
 
-Projet de deploiement et de monitoring d'un modele de scoring credit base sur Home Credit Default Risk.
+A credit default model served behind an API, with its predictions stored, its traffic
+monitored, its drift watched — and, more unusually, its **decision analysed**: how honest
+the published cost is, how uncertain, how much it depends on an assumption nobody
+measured, and how it falls across age and gender.
 
-Le depot couvre la chaine MLOps complete autour d'un modele de scoring :
+## Project status
 
-- preparation des donnees ;
-- entrainement et tracking MLflow ;
-- export d'artefacts de serving ;
-- API FastAPI ;
-- interface Streamlit ;
-- stockage des predictions ;
-- monitoring technique ;
-- analyse de drift ;
-- benchmarks de performance ;
-- tests automatises ;
-- CI/CD ;
-- deploiement Hugging Face Spaces.
+**This repository is archived in a runnable state.** The Hugging Face Space, the Supabase
+database and the API keys have been decommissioned, and the continuous integration
+workflows are frozen to manual trigger only — deliberately, so that nothing here decays
+into a red cross on an unmaintained project. Their last successful runs stay visible in
+the Actions tab.
 
-## Objectif
+The trained model is versioned, so everything below reproduces locally with
+`docker compose up`. The one thing not shipped is the data: Home Credit's terms do not
+allow redistribution. See [Reproducing the results](#reproducing-the-results).
 
-Servir un score de defaut en quasi temps reel, journaliser les predictions et monitorer la solution en local et a distance.
+## The problem
+
+A lender approving a loan makes an asymmetric mistake. Refusing a good applicant costs a
+margin. Approving one who defaults costs the principal. Treating the two as equally bad —
+which is what a 0.5 threshold on a probability does — optimises for a cost nobody has.
+
+This project scores [Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-risk)
+applicants and picks its decision threshold by minimising a business cost where a false
+negative is worth ten false positives, then puts the whole thing behind an API with the
+monitoring a served model needs.
+
+## What it does
+
+![The API documentation at /docs](reports/screenshots/api-swagger.png)
+
+Send an applicant, get a probability, a decision at the shipped threshold, and the
+reasoning behind it. Every prediction is written to Postgres, so the served population can
+be compared later against the training one.
+
+![A scored applicant](reports/screenshots/api-prediction.png)
+
+A Streamlit interface sits on top for people who will not send JSON by hand, with a
+scoring page and a monitoring page.
+
+![The scoring interface](reports/screenshots/streamlit-scoring.png)
+
+Prometheus scrapes the API and Grafana draws it: request rate, status codes, latency, and
+traffic on the prediction endpoint specifically.
+
+![The Grafana dashboard](reports/screenshots/grafana-dashboard.png)
+
+## Approach
+
+Ingestion joins the seven Home Credit tables into one feature set. Training is
+cross-validated with stratified folds, tracked in MLflow, and tuned with Optuna; the
+selected model is a LightGBM. The decision threshold is chosen by minimising the business
+cost, not by taking 0.5. Serving loads a frozen `pipeline.joblib` with its
+`feature_columns.json` and `threshold.json`, so the API depends on artefacts rather than
+on the training code.
+
+Two choices worth defending:
+
+**The preprocessing lives inside the pipeline, not before it.** Imputation and scaling are
+steps of the `Pipeline` that is fit on the training fold, so nothing about the validation
+fold reaches the transformer. It is the most common leak on this dataset and the reason
+published scores on it are often optimistic.
+
+**A frozen artefact, not a model registry call, backs the API.** MLflow tracks the
+experiments; it does not sit in the serving path. One fewer service to keep alive for a
+model that is not retrained on a schedule.
+
+## The decision analysis
+
+This is the part that distinguishes a model from a decision, and it is where I would start
+reading.
+
+### Is the model worth having?
+
+| Policy | Cost per applicant |
+|---|---|
+| accept everyone | 0.8075 |
+| refuse everyone | 0.9193 |
+| random at the base rate | 0.8170 |
+| **the model, at threshold 0.49** | **0.4888** |
+
+With 8 % defaults and a false negative worth ten false positives, refusing everyone is not
+an absurd policy — which is exactly why it belongs in the table. The model roughly halves
+the cost of the best trivial rule. Without these floors, `0.4888` has no scale.
+
+### How uncertain is that number?
+
+**95 % confidence interval: 0.4721 – 0.5068**, from 1 000 bootstrap resamples of the
+holdout at a fixed threshold. The threshold is held fixed on purpose: resampling *and*
+re-optimising would mix two sources of variation into an interval nobody could interpret.
+
+### Is it honest?
+
+Two biases were suspected, and both were measured rather than argued about.
+
+The cross-validation used to pick its threshold on the same fold it then scored. On the
+holdout, that shortcut is worth **0.0029 per applicant** — about 0.6 % of the cost. Real,
+small, and free to remove, which is what happened: each fold is now scored with the
+threshold its neighbour chose.
+
+The shipped threshold was calibrated on a model trained on part of the development set and
+then applied to one refit on all of it. Against this sample's own optimum (0.48 rather than
+0.49) the **regret is 0.0028 per applicant**. The compromise is validated by measurement,
+not by assertion.
+
+### How much rests on an assumption?
+
+![Optimal threshold and cost against the assumed cost ratio](reports/decision/cost_sensitivity.png)
+
+The optimal threshold runs from **0.89** if a false negative is worth one false positive to
+**0.18** if it is worth fifty. The decision sweeps the entire usable range on the strength
+of a ratio that was assumed, not measured. Everything above is conditional on that number,
+and this figure is how a reader sees it.
+
+### Who does it refuse?
+
+| Group | n | Default rate | Refusal rate | Missed defaulters |
+|---|---|---|---|---|
+| under 30 | 4 349 | 0.112 | **0.484** | 0.211 |
+| 30-39 | 8 144 | 0.093 | 0.340 | 0.254 |
+| 40-49 | 7 773 | 0.078 | 0.258 | 0.327 |
+| 50-59 | 6 844 | 0.065 | 0.194 | 0.457 |
+| 60 and over | 3 641 | 0.051 | **0.125** | **0.587** |
+| men | 10 371 | 0.103 | 0.378 | 0.243 |
+| women | 20 380 | 0.069 | 0.232 | 0.386 |
+
+Applicants under thirty are refused **3.9 times** more often than those over sixty. Part of
+that follows real risk — they default at 11.2 % against 5.1 %. Not all of it does, and the
+mirror image is the uncomfortable half: among applicants over sixty the model **misses 59 %
+of those who default**. Low refusal and poor detection are the same fact seen twice.
+
+Nothing here is corrected. Adjusting a credit model for fairness commits to a definition of
+fairness, and several reasonable definitions are mutually exclusive — equal refusal rates
+and equal error rates cannot both hold when the base rates differ. That is a decision for
+whoever owns the lending policy, and taking it in passing would be worse than naming it.
+
+Reproduce all of it with `uv run python scripts/decision_analysis.py`; the numbers land in
+`reports/decision/`.
+
+## Limitations, and what I would do differently
+
+**The cost ratio is assumed, not measured.** Ten to one is plausible and conventional. It
+is not evidence. The sensitivity curve exists because that assumption deserved a figure
+rather than a footnote, but the right fix is to get the real ratio from whoever bears the
+loss.
+
+**One holdout, drawn once.** The confidence interval covers sampling noise inside that
+holdout, not the variation between different splits. Repeated splits would widen it.
+
+**The drift monitoring demonstrates tooling, not drift.** Home Credit has no usable time
+axis, so what Evidently compares is two samples of the same population. The plumbing is
+real; the phenomenon is not.
+
+![The drift report](reports/screenshots/drift-report.png)
+
+**The fairness gaps are published and untouched.** See above.
+
+**Only the model is compared against trivial baselines.** A logistic regression and an
+untuned LightGBM would round out the table, and both need retraining on the full feature
+set — outside the "no retraining" boundary this analysis set for itself.
 
 ## Stack
 
-### Local
+Python 3.12 · LightGBM · scikit-learn · imbalanced-learn · Optuna · MLflow · FastAPI ·
+Streamlit · PostgreSQL · Prometheus · Grafana · Evidently · pytest · ruff · bandit · uv ·
+Docker.
 
-```text
-Docker Compose
-  |- FastAPI API
-  |- PostgreSQL
-  |- Streamlit
-  |- Prometheus
-  `- Grafana
-```
+![The MLflow registry](reports/screenshots/mlflow-registry.png)
 
-### Distant
+## Reproducing the results
 
-```text
-Hugging Face Docker Space
-  |- Nginx on port 7860
-  |- Streamlit on /
-  |- FastAPI on /api
-  `- Supabase PostgreSQL logging
-```
-
-## Structure du depot
-
-```text
-src/credexp/
-  config.py
-  data/
-  db/
-  modeling/
-  monitoring/
-  serving/
-  utils/
-
-scripts/
-  build_features.py
-  train_mlflow.py
-  train_final.py
-  tune_optuna.py
-  explainability.py
-  init_db.py
-  run_api.py
-  monitoring_drift.py
-  profile_inference.py
-  benchmark_api.py
-  benchmark_batching.py
-  benchmark_onnx.py
-
-tests/
-  test_api.py
-  test_data_io.py
-  test_one_hot_encoder.py
-  test_threshold.py
-
-streamlit_app/
-  app.py
-  pages/
-
-docker/
-  api.Dockerfile
-  prometheus.Dockerfile
-  prometheus/prometheus.yml
-
-deploy/huggingface/
-  Dockerfile
-  README.md
-  nginx.conf
-  start.sh
-
-.github/workflows/
-  ci.yml
-  deploy_huggingface.yml
-
-notebooks/
-  01_build_features.ipynb
-  02_eda.ipynb
-  03_training_mlflow.ipynb
-  04_tuning_registry_final.ipynb
-  05_explainability.ipynb
-  06_drift_monitoring.ipynb
-  07_performance_optimization.ipynb
-
-reports/
-  coverage/
-  monitoring/
-  performance/
-  screenshots/
-  demo.md
-  soutenance_marp.md
-
-artifacts/models/
-  pipeline.joblib
-  threshold.json
-  feature_columns.json
-```
-
-## Modele et artefacts
-
-Le serving s'appuie sur trois artefacts minimaux :
-
-```text
-artifacts/models/pipeline.joblib
-artifacts/models/threshold.json
-artifacts/models/feature_columns.json
-```
-
-MLflow sert au tracking et au registry pendant l'entrainement. Le deploiement embarque ensuite les artefacts exportes pour garder une image Docker autonome.
-
-## API FastAPI
-
-Implementation :
-
-```text
-src/credexp/serving/api.py
-```
-
-Endpoints locaux :
-
-| Endpoint | Methode | Role |
-|---|---|---|
-| `/health` | GET | Healthcheck |
-| `/model-info` | GET | Metadonnees du modele charge |
-| `/predict` | POST | Prediction unitaire |
-| `/predict_batch` | POST | Prediction batch |
-| `/metrics` | GET | Metriques Prometheus |
-| `/docs` | GET | Swagger UI |
-
-URL locale :
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-URL distante :
-
-```text
-https://<owner>-credexp.hf.space/api/docs
-```
-
-Le modele est charge une seule fois au demarrage de l'API puis reutilise pour toutes les requetes.
-
-## Interface Streamlit
-
-Fichiers :
-
-```text
-streamlit_app/app.py
-streamlit_app/pages/1_Scoring_Client.py
-streamlit_app/pages/2_Monitoring_Dev.py
-```
-
-Pages disponibles :
-
-1. `Scoring Client`
-2. `Monitoring Dev`
-
-URL locale :
-
-```text
-http://127.0.0.1:8501
-```
-
-URL distante :
-
-```text
-https://<owner>-credexp.hf.space
-```
-
-## Stockage des predictions
-
-Table cible : `predictions`
-
-Champs suivis :
-
-- `request_id`
-- `sk_id_curr`
-- `model_name`
-- `model_version`
-- `threshold`
-- `proba_default`
-- `decision`
-- `latency_ms`
-- `status_code`
-- `error_message`
-- `input_payload`
-- `output_payload`
-
-Base locale :
-
-```text
-postgresql+psycopg://postgres:postgres@localhost:5432/credexp
-```
-
-Base distante :
-
-```text
-DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:PORT/postgres?sslmode=require
-```
-
-## Monitoring
-
-### Prometheus
-
-```text
-http://127.0.0.1:9090
-http://127.0.0.1:9090/targets
-```
-
-La cible attendue est `credexp_api` en statut `UP`.
-
-### Grafana
-
-```text
-http://127.0.0.1:3000
-```
-
-Identifiants par defaut :
-
-```text
-admin / admin
-```
-
-### Drift Evidently
-
-Commande :
-
-```powershell
-uv run python scripts/monitoring_drift.py --limit 500
-```
-
-Sorties :
-
-```text
-reports/monitoring/evidently_drift.html
-reports/monitoring/evidently_drift_meta.json
-```
-
-Notebook associe :
-
-```text
-notebooks/06_drift_monitoring.ipynb
-```
-
-## Performance
-
-Commandes principales :
-
-```powershell
-uv run python scripts/profile_inference.py
-uv run python scripts/benchmark_api.py
-uv run python scripts/benchmark_batching.py
-uv run python scripts/benchmark_onnx.py
-```
-
-Sorties :
-
-```text
-reports/performance/cprofile_inference_top20.txt
-reports/performance/inference_benchmark.json
-reports/performance/api_benchmark.json
-reports/performance/batching_benchmark.json
-reports/performance/onnx_benchmark.json
-```
-
-Notebook associe :
-
-```text
-notebooks/07_performance_optimization.ipynb
-```
-
-## Lancement local
-
-Prerequis : Python 3.12, `uv`, Docker Desktop.
-
-Installation :
-
-```powershell
+```bash
+cp .env.example .env          # add the database and API settings
 uv sync --all-groups
+docker compose up             # API, Streamlit, Postgres, Prometheus, Grafana, MLflow
 ```
 
-Demarrage de la stack :
+The API serves on `:8000` with its documentation at `/docs`; Streamlit on `:8501`.
 
-```powershell
-docker compose down -v
-docker compose up --build -d
-Start-Sleep -Seconds 30
-docker compose ps
+The decision analysis needs the holdout, which is **not versioned** — Home Credit's terms
+do not allow redistributing the data. Rebuild it from the raw tables with
+`scripts/train_final.py`, then:
+
+```bash
+uv run python scripts/decision_analysis.py
 ```
 
-Generation de predictions de demo :
+Tests: `uv run pytest` — 23 tests, no network, coverage gate at 20 %.
 
-```powershell
-1..50 | ForEach-Object { .\api_examples\test_api.ps1 }
+## Repository layout
+
+```
+src/credexp/
+├── data/         raw table loading and joins
+├── modeling/     features, training, threshold, and the decision analysis
+├── serving/      artefact loading and prediction
+├── db/           prediction storage
+└── monitoring/   drift computation
+scripts/          thin entry points, one per operation
+streamlit_app/    the scoring and monitoring interface
+artifacts/models/ the frozen serving artefacts
+reports/decision/ the decision analysis results and figures
+deploy/           Hugging Face Space packaging
 ```
 
-Verification PostgreSQL :
+## Licence
 
-```powershell
-docker exec -it credexp_db psql -U postgres -d credexp -c "\dt"
-docker exec -it credexp_db psql -U postgres -d credexp -c "SELECT created_at, sk_id_curr, model_version, proba_default, decision, latency_ms FROM predictions ORDER BY created_at DESC LIMIT 10;"
-```
-
-Services locaux :
-
-| Service | URL |
-|---|---|
-| FastAPI Swagger | http://127.0.0.1:8000/docs |
-| Streamlit | http://127.0.0.1:8501 |
-| Prometheus | http://127.0.0.1:9090 |
-| Grafana | http://127.0.0.1:3000 |
-
-## Tests et qualite
-
-Lint :
-
-```powershell
-uv run ruff check .
-uv run ruff format --check .
-```
-
-Tests :
-
-```powershell
-uv run pytest -q
-```
-
-Rapports :
-
-```text
-reports/coverage/coverage.xml
-reports/coverage/html/
-```
-
-Le seuil de couverture configure dans `pyproject.toml` est de `20`.
-
-## CI/CD
-
-Workflow CI :
-
-```text
-.github/workflows/ci.yml
-```
-
-Declencheurs :
-
-- `push` sur `main` et `develop`
-- `pull_request` sur `main` et `develop`
-
-Contenu :
-
-- sync des dependances avec `uv`
-- ruff check et format
-- `pytest`
-- validation de `docker compose`
-- build de l'image `docker/api.Dockerfile`
-
-Workflow de deploiement Hugging Face :
-
-```text
-.github/workflows/deploy_huggingface.yml
-```
-
-Declencheurs :
-
-- `push` sur `develop`
-- `workflow_dispatch`
-
-Secrets attendus :
-
-```text
-HF_TOKEN
-HF_SPACE_ID
-DATABASE_URL
-```
-
-
-## Limites et suites
-
-- Les donnees brutes Kaggle ne sont pas versionnees dans Git.
-- Le drift reste qualitatif quand le volume de predictions est faible.
-- Le deploiement Hugging Face est une preuve de concept realiste, pas une infra cloud complete.
-- Les prochaines evolutions naturelles sont l'alerting, le retraining et des tests end-to-end de staging.
+Code under [MIT](LICENSE). The Home Credit Default Risk data is **not redistributed**: it
+remains subject to the competition's terms and must be obtained from Kaggle.
