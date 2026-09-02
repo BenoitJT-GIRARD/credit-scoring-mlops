@@ -14,7 +14,7 @@ from sklearn.neural_network import MLPClassifier
 from credexp.config import settings
 from credexp.modeling.metrics import evaluate_binary
 from credexp.modeling.pipelines import make_numeric_steps
-from credexp.modeling.threshold import find_best_threshold
+from credexp.modeling.threshold import business_cost, find_best_threshold
 from credexp.utils.logging import get_logger
 
 log = get_logger(__name__)
@@ -109,19 +109,21 @@ def _make_pipeline(model_name: str, activation: str | None, cfg: TrainConfig):
 def run_cv(X, y, model_name: str, activation: str | None, cfg: TrainConfig):
     """Cross-validate a model family and return its selection metrics.
 
-    Read `business_cost_mean` and `best_threshold_mean` as **selection diagnostics, not
-    as an expected cost.** The threshold is chosen on the validation fold and the cost is
-    then measured on that same fold, so the figure is the minimum achievable there rather
-    than an out-of-sample estimate. The bias applies equally to every model compared, so
-    the ranking holds; the absolute value does not.
+    `business_cost_per_row` is measured **out of sample**: the threshold chosen on fold k is
+    applied to fold k+1, so no fold both picks and scores its own threshold.
 
-    The cost that can be quoted is the one `scripts/train_final.py` measures on the
-    holdout, which never takes part in choosing the threshold. `roc_auc` and `pr_auc` are
-    threshold-free and unaffected.
+    It used to do exactly that, and the bias was worth measuring before removing: on the
+    holdout, picking and scoring a threshold on the same half costs 0.0029 per applicant
+    less than picking it on one half and scoring on the other — about 0.6 % of a cost near
+    0.49. Small, but pointing the wrong way, and free to remove. See
+    `reports/decision/decision_analysis.json` and `credexp.modeling.threshold.split_threshold_cost`.
+
+    `roc_auc` and `pr_auc` are threshold-free and were never affected.
     """
     skf = StratifiedKFold(n_splits=cfg.n_splits, shuffle=True, random_state=cfg.random_state)
 
-    aucs, pr_aucs, thresholds, costs = [], [], [], []
+    aucs, pr_aucs, thresholds = [], [], []
+    fold_labels, fold_probas = [], []
 
     for fold, (tr, va) in enumerate(skf.split(X, y), start=1):
         X_tr, X_va = X.iloc[tr], X.iloc[va]
@@ -141,7 +143,7 @@ def run_cv(X, y, model_name: str, activation: str | None, cfg: TrainConfig):
                 f"Non-finite probabilities detected (nan/inf) for model={model_name} activation={activation} fold={fold}"
             )
 
-        best_thr, best_cost = find_best_threshold(
+        best_thr, _ = find_best_threshold(
             y_true=y_va.to_numpy(),
             y_proba=proba,
             cost_fn=cfg.cost_fn,
@@ -150,13 +152,29 @@ def run_cv(X, y, model_name: str, activation: str | None, cfg: TrainConfig):
         rep = evaluate_binary(y_va.to_numpy(), proba, threshold=best_thr)
 
         log.info(
-            f"fold={fold} model={model_name} auc={rep.roc_auc:.4f} pr_auc={rep.pr_auc:.4f} thr={best_thr:.3f} cost={best_cost:.1f}"
+            f"fold={fold} model={model_name} auc={rep.roc_auc:.4f} pr_auc={rep.pr_auc:.4f} thr={best_thr:.3f}"
         )
 
         aucs.append(rep.roc_auc)
         pr_aucs.append(rep.pr_auc)
         thresholds.append(best_thr)
-        costs.append(best_cost)
+        fold_labels.append(y_va.to_numpy())
+        fold_probas.append(proba)
+
+    # Each fold is scored with the threshold its neighbour chose, so no fold both selects
+    # and evaluates its own. Cycling keeps every fold scored exactly once.
+    n_folds = len(thresholds)
+    costs = [
+        business_cost(
+            fold_labels[i],
+            fold_probas[i],
+            thresholds[(i - 1) % n_folds],
+            cfg.cost_fn,
+            cfg.cost_fp,
+        )
+        / len(fold_labels[i])
+        for i in range(n_folds)
+    ]
 
     return {
         "roc_auc_mean": float(np.mean(aucs)),
@@ -164,7 +182,7 @@ def run_cv(X, y, model_name: str, activation: str | None, cfg: TrainConfig):
         "pr_auc_mean": float(np.mean(pr_aucs)),
         "pr_auc_std": float(np.std(pr_aucs)),
         "best_threshold_mean": float(np.mean(thresholds)),
-        "business_cost_mean": float(np.mean(costs)),
+        "business_cost_per_row": float(np.mean(costs)),
     }
 
 
