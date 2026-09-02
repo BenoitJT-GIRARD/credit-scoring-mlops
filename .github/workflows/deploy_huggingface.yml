@@ -1,8 +1,9 @@
 name: deploy-huggingface
 
+# Manual only. The Hugging Face Space this deploys to has been decommissioned, so a
+# push-triggered run would fail on every commit and leave a red cross on a project nobody
+# maintains. Kept in the repository because it documents how the deployment worked.
 on:
-  push:
-    branches: [develop]
   workflow_dispatch:
 
 jobs:
