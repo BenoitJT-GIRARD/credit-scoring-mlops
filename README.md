@@ -168,6 +168,60 @@ whoever owns the lending policy, and taking it in passing would be worse than na
 Reproduce all of it with `uv run python scripts/decision_analysis.py`; the numbers land in
 `reports/decision/`.
 
+## What a returned probability is worth
+
+The API returns a field called `proba_default`. Measured on the 30 751-row holdout, it
+does not mean what its name says.
+
+| | mean score | Brier | ECE |
+|---|---|---|---|
+| as served | 0.366 | 0.165 | **0.287** |
+| after isotonic recalibration | 0.082 | 0.064 | **0.006** |
+| true base rate | 0.079 | | |
+
+**The model overstates default risk by a factor of about 4.6**, and it does so across the
+whole range: where it predicts 0.43 the observed rate is 0.070, where it predicts 0.78 it
+is 0.311. This is not a defect of the model, it is the price of `class_weight="balanced"` —
+reweighting the classes buys ranking quality and destroys the probability scale. ROC AUC
+cannot see it, because multiplying every score by a constant reorders nothing.
+
+Isotonic recalibration, fitted on half the holdout and measured on the other half, removes
+almost all of it: ECE falls from 0.287 to 0.006 and the mean score lands on the base rate.
+
+**The decision, and what it still requires.** The served model should carry that
+recalibration, with the threshold mapped through the same monotone function so that no
+decision changes — isotonic regression cannot reorder a pair, only merge two. Doing it
+properly means fitting the calibrator during training, on the validation split, and
+recording it in the model manifest. That needs a training run on the full feature matrix,
+which is not shipped with this repository. Until then the number to read is `decision`,
+and `proba_default` should be read as a score rather than a probability.
+
+`uv run python scripts/calibration_report.py` reproduces the table and the figure.
+
+![Calibration on the holdout](reports/figures/calibration.png)
+
+## Is the threshold a decision or a coincidence
+
+The shipped threshold is 0.49, chosen by minimising the business cost on one validation
+split. Reselected on 25 resamples of half the holdout, it lands at a median of 0.50 with a
+95% interval of **[0.47, 0.544]**.
+
+So it is a stable choice, and the shipped value sits inside the interval. That is worth
+knowing precisely because it could have gone the other way: a threshold whose interval
+spanned 0.3 to 0.7 would be one draw among many presented as a decision, and 27% of the
+population is refused at the current one.
+
+## Where drift is measured
+
+On the **raw API input**, not on the engineered feature space the model consumes. The
+reference set is a sample of the training data, the current set is rebuilt from logged
+requests, and the comparison is between what clients send now and what they sent then.
+
+That is the right level for catching a change in the traffic, and the wrong level for
+catching a change in what an aggregate means. Both matter; only the first is watched here,
+and the report is generated on demand rather than on a schedule — an unattended job nobody
+reads eventually turns red on its own and is then trusted less than no job at all.
+
 ## Limitations, and what I would do differently
 
 **The cost ratio is assumed, not measured.** Ten to one is plausible and conventional. It

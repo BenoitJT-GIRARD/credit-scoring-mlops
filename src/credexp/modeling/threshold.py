@@ -28,6 +28,55 @@ def find_best_threshold(
     return float(thresholds[best_i]), float(costs[best_i])
 
 
+def threshold_spread(
+    y_true: np.ndarray,
+    y_proba: np.ndarray,
+    cost_fn: float = 10.0,
+    cost_fp: float = 1.0,
+    n_repeats: int = 25,
+    fraction: float = 0.5,
+    random_state: int = 0,
+) -> dict:
+    """How much the chosen threshold moves when the split it was chosen on changes.
+
+    The shipped threshold is picked on one validation split. That makes it a point
+    estimate, and a point estimate presented as a decision hides the question a reader
+    should ask: are 0.42 and 0.48 two different settings, or the same number twice?
+
+    ``n_repeats`` resamples of half the data, the threshold reselected on each. The spread
+    of those is the answer. It is deliberately not a bootstrap of the cost — the quantity
+    that has to be stable is the threshold itself, because that is what gets deployed.
+    """
+    y_true = np.asarray(y_true)
+    y_proba = np.asarray(y_proba, dtype=float)
+    rng = np.random.default_rng(random_state)
+    size = max(int(len(y_true) * fraction), 2)
+
+    thresholds = []
+    for _ in range(n_repeats):
+        index = rng.choice(len(y_true), size=size, replace=False)
+        if len(set(y_true[index].tolist())) < 2:
+            continue
+        threshold, _ = find_best_threshold(y_true[index], y_proba[index], cost_fn, cost_fp)
+        thresholds.append(threshold)
+
+    if not thresholds:
+        return {
+            "median": float("nan"),
+            "ci_low": float("nan"),
+            "ci_high": float("nan"),
+            "n_repeats": 0,
+        }
+
+    drawn = np.asarray(thresholds)
+    return {
+        "median": float(np.median(drawn)),
+        "ci_low": float(np.percentile(drawn, 2.5)),
+        "ci_high": float(np.percentile(drawn, 97.5)),
+        "n_repeats": len(drawn),
+    }
+
+
 def split_threshold_cost(
     y_true: np.ndarray,
     y_proba: np.ndarray,
