@@ -10,13 +10,14 @@ def build_prediction_log(
     model_name: str,
     model_version: str,
     threshold: float,
-    proba_default: float,
-    decision: int,
+    proba_default: float | None,
+    decision: int | None,
     latency_ms: float,
     status_code: int,
     input_payload: dict,
     output_payload: dict,
     error_message: str | None = None,
+    failure_kind: str | None = None,
 ) -> PredictionLog:
     return PredictionLog(
         request_id=request_id,
@@ -31,4 +32,5 @@ def build_prediction_log(
         input_payload=input_payload,
         output_payload=output_payload,
         error_message=error_message,
+        failure_kind=failure_kind,
     )

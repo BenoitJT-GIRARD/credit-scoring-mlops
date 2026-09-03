@@ -97,6 +97,9 @@ exclude = ["notebooks"]
 quote-style = "double"
 
 [tool.pytest.ini_options]
+markers = [
+    "integration: needs a real provisioned service (a loaded model, a reachable database)",
+]
 addopts = """
 -ra
 --cov=credexp

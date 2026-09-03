@@ -35,12 +35,18 @@ class PredictionLog(Base):
     model_version: Mapped[str] = mapped_column(String(64), nullable=False)
 
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
-    proba_default: Mapped[float] = mapped_column(Float, nullable=False)
-    decision: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Nullable, because a failed request has no score. Zero is a score; the absence of
+    # one is not, and storing 0.0 for a failure would corrupt every rate computed from
+    # this table.
+    proba_default: Mapped[float | None] = mapped_column(Float, nullable=True)
+    decision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     latency_ms: Mapped[float] = mapped_column(Float, nullable=False)
     status_code: Mapped[int] = mapped_column(Integer, nullable=False)
 
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: One of ``FailureKind``, or null on success. Closed vocabulary, so failures can be
+    #: counted rather than read.
+    failure_kind: Mapped[str | None] = mapped_column(String(32), index=True, nullable=True)
 
     input_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
     output_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)

@@ -12,6 +12,10 @@ from mlflow.tracking import MlflowClient
 
 from credexp.config import settings
 from credexp.data.io import processed_dir
+from credexp.serving.failures import FailureKind
+from credexp.utils.logging import get_logger
+
+log = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -212,7 +216,20 @@ def load_model_bundle() -> ModelBundle:
                 model_uri=model_uri,
                 model_name=model_name,
             )
-        except Exception:
+        except Exception as exc:
+            # The fallback is deliberate — it is what the lightweight remote deployment
+            # runs on. Its silence was not: a misconfigured registry made the API serve a
+            # different model than the one it was asked for, and nothing said why. The
+            # joblib-fallback version tag records *that* it fell back; this records what
+            # it hit.
+            log.warning(
+                "model_registry_unavailable",
+                extra={
+                    "model_uri": model_uri,
+                    "failure_kind": str(FailureKind.MODEL_UNAVAILABLE),
+                    "error": repr(exc),
+                },
+            )
             pipe = _load_local_joblib_model()
             model_version = os.getenv("MODEL_VERSION", "joblib-fallback")
 
