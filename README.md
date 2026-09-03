@@ -5,6 +5,9 @@ monitored, its drift watched — and, more unusually, its **decision analysed**:
 the published cost is, how uncertain, how much it depends on an assumption nobody
 measured, and how it falls across age and gender.
 
+This repository carries the **instrumentation**: Prometheus metrics, a drift module, and the
+decision analysis below.
+
 ## Project status
 
 **This repository is archived in a runnable state.** The Hugging Face Space, the Supabase
