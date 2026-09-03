@@ -15,6 +15,7 @@ from credexp.config import settings
 from credexp.db.crud import build_prediction_log
 from credexp.db.init_db import init_db
 from credexp.db.session import SessionLocal
+from credexp.monitoring.serving_metrics import observe_failure, observe_prediction
 from credexp.serving.failures import FailureKind
 from credexp.serving.model_loader import ModelBundle, load_model_bundle
 from credexp.serving.schemas import (
@@ -224,6 +225,7 @@ def _log_failure(
         str(kind),
         extra={"request_id": request_id, "failure_kind": str(kind), "error": repr(exc)},
     )
+    observe_failure(failure_kind=str(kind))
     _log_prediction_best_effort(
         request_id=request_id,
         req=req,
@@ -281,6 +283,12 @@ def _predict_one(req: PredictRequest, request_id: str | None = None) -> PredictR
         "latency_ms": float(latency_ms),
     }
 
+    observe_prediction(
+        model_version=BUNDLE.model_version,
+        endpoint="predict",
+        proba=proba,
+        decision=decision,
+    )
     _log_prediction_best_effort(
         request_id=prediction_request_id,
         req=req,
@@ -372,6 +380,12 @@ def predict_batch(req: BatchPredictRequest, request: Request) -> BatchPredictRes
             "model_version": BUNDLE.model_version,
             "latency_ms": float(latency_ms),
         }
+        observe_prediction(
+            model_version=BUNDLE.model_version,
+            endpoint="predict_batch",
+            proba=proba,
+            decision=decision,
+        )
         _log_prediction_best_effort(
             request_id=f"{base_request_id}:{index}",
             req=item,

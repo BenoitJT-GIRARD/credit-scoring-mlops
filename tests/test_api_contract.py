@@ -5,67 +5,19 @@ is loaded or not, so it never once checked what the endpoint returns — a green
 measured nothing. These fix the model in place with a fake bundle and demand 200, which is
 the only way the shape of the response can be asserted at all.
 
-The one test that needs a real provisioned service lives in ``test_api.py`` and is marked
-``integration``.
+The doubles live in ``conftest.py``. The one test that needs a real provisioned service is
+in ``test_api.py``, marked ``integration``.
 """
 
 from __future__ import annotations
 
-import numpy as np
-import pytest
+from conftest import FEATURES, THRESHOLD
+from conftest import payload as _payload
 from fastapi.testclient import TestClient
 
 from credexp.serving import api as api_module
 from credexp.serving.api import app
-
-FEATURES = ["EXT_SOURCE_1", "EXT_SOURCE_2", "AMT_CREDIT"]
-THRESHOLD = 0.42
-
-
-class _FakePipeline:
-    """Scores a row by its first feature, so a test can choose the outcome it wants."""
-
-    def __init__(self) -> None:
-        self.calls: list[int] = []
-
-    def predict_proba(self, frame):
-        self.calls.append(len(frame))
-        first = frame[FEATURES[0]].astype(float).fillna(0.0).to_numpy()
-        positive = np.clip(first, 0.0, 1.0)
-        return np.column_stack([1.0 - positive, positive])
-
-
-class _FailingPipeline:
-    def predict_proba(self, frame):
-        raise RuntimeError("the pipeline exploded")
-
-
-def _bundle(pipe):
-    return api_module.ModelBundle(
-        pipe=pipe,
-        threshold=THRESHOLD,
-        model_name="credit_scoring_model",
-        model_version="test",
-        feature_columns=FEATURES,
-    )
-
-
-@pytest.fixture()
-def loaded(monkeypatch):
-    """A bundle that is always present, and a database that is never touched."""
-    pipe = _FakePipeline()
-    monkeypatch.setattr(api_module, "BUNDLE", _bundle(pipe))
-    logged: list[dict] = []
-    monkeypatch.setattr(
-        api_module,
-        "_log_prediction_best_effort",
-        lambda **kwargs: logged.append(kwargs),
-    )
-    return TestClient(app), pipe, logged
-
-
-def _payload(value: float, sk_id: int | None = 1) -> dict:
-    return {"sk_id_curr": sk_id, "features": {FEATURES[0]: value, FEATURES[1]: 0.1}}
+from credexp.serving.failures import FailureKind
 
 
 def test_predict_returns_the_documented_shape(loaded) -> None:
@@ -141,16 +93,9 @@ def test_every_row_of_a_batch_is_logged_with_its_own_derived_id(loaded) -> None:
     assert all(entry["proba"] is not None for entry in logged)
 
 
-def test_an_inference_failure_is_logged_with_a_closed_failure_kind(monkeypatch) -> None:
+def test_an_inference_failure_is_logged_with_a_closed_failure_kind(failing) -> None:
     """A predictions table holding only successes makes every error rate wrong."""
-    from credexp.serving.failures import FailureKind
-
-    monkeypatch.setattr(api_module, "BUNDLE", _bundle(_FailingPipeline()))
-    logged: list[dict] = []
-    monkeypatch.setattr(
-        api_module, "_log_prediction_best_effort", lambda **kwargs: logged.append(kwargs)
-    )
-    client = TestClient(app, raise_server_exceptions=False)
+    client, logged = failing
 
     response = client.post("/predict", json=_payload(0.5), headers={"x-request-id": "boom"})
 
@@ -163,13 +108,8 @@ def test_an_inference_failure_is_logged_with_a_closed_failure_kind(monkeypatch) 
     assert "exploded" in entry["error_message"]
 
 
-def test_a_failed_batch_logs_one_row_per_client(monkeypatch) -> None:
-    monkeypatch.setattr(api_module, "BUNDLE", _bundle(_FailingPipeline()))
-    logged: list[dict] = []
-    monkeypatch.setattr(
-        api_module, "_log_prediction_best_effort", lambda **kwargs: logged.append(kwargs)
-    )
-    client = TestClient(app, raise_server_exceptions=False)
+def test_a_failed_batch_logs_one_row_per_client(failing) -> None:
+    client, logged = failing
 
     response = client.post(
         "/predict_batch",
