@@ -300,6 +300,10 @@ says it did not run.
 └── tests/
 ```
 
+Python 3.12 · LightGBM · scikit-learn · imbalanced-learn · Optuna · MLflow · FastAPI ·
+Streamlit · PostgreSQL · Prometheus · Grafana · Evidently · pytest · ruff · bandit · uv ·
+Docker.
+
 ## What this does not prove
 
 **The cost ratio is assumed.** Ten to one is plausible and conventional. It is not
@@ -318,12 +322,6 @@ real; the phenomenon is not.
 **Only the model is compared against trivial baselines.** A logistic regression and an
 untuned LightGBM would round out the table, and both need retraining on the full feature
 set — outside the "no retraining" boundary this analysis set for itself.
-
-## Stack
-
-Python 3.12 · LightGBM · scikit-learn · imbalanced-learn · Optuna · MLflow · FastAPI ·
-Streamlit · PostgreSQL · Prometheus · Grafana · Evidently · pytest · ruff · bandit · uv ·
-Docker.
 
 ## Licence and data
 
