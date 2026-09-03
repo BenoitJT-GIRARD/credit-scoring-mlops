@@ -1,0 +1,12 @@
+# The dashboard is provisioned as code, so its data source has to be too: a dashboard that
+# points at a data source somebody added by hand is a dashboard nobody else can open.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: credexp-prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

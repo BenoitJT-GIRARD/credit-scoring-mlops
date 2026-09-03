@@ -70,9 +70,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="Credit Scoring API",
+    title="Credit scoring API",
     version="0.1.0",
-    description="API de scoring crédit pour le projet OC - Partie 2",
+    description=(
+        "Estimates the probability that a loan applicant defaults, and turns it into an "
+        "accept-or-refuse decision at a threshold chosen by minimising an expected cost "
+        "in which one default is worth ten wrongful refusals.\n\n"
+        "Every scored request is written to PostgreSQL with the score, the decision, the "
+        "threshold and the model version that produced it.\n\n"
+        "`proba_default` is a ranking score rather than a calibrated probability: the "
+        "model is fit with balanced class weights and overstates risk by roughly a factor "
+        "of four. Read `decision`."
+    ),
     root_path=os.getenv("API_ROOT_PATH", ""),
     lifespan=lifespan,
 )
