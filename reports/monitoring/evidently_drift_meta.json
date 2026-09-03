@@ -1,6 +1,6 @@
 {
   "n_reference": 20000,
-  "n_current": 76,
-  "n_features": 3,
+  "n_current": 819,
+  "n_features": 12,
   "report_path": "reports\\monitoring\\evidently_drift.html"
 }

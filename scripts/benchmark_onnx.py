@@ -44,9 +44,11 @@ def main() -> None:
 
     result: dict[str, Any] = {
         "status": "started",
-        "pipeline_path": str(PIPELINE_PATH),
-        "holdout_path": str(HOLDOUT_PATH),
-        "onnx_model_path": str(ONNX_PATH),
+        # Relative to the repository root: an absolute path pins the committed report to
+        # whoever happened to run it.
+        "pipeline_path": PIPELINE_PATH.relative_to(ROOT).as_posix(),
+        "holdout_path": HOLDOUT_PATH.relative_to(ROOT).as_posix(),
+        "onnx_model_path": ONNX_PATH.relative_to(ROOT).as_posix(),
     }
 
     try:

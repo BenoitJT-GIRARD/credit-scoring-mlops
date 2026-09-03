@@ -1,15 +1,15 @@
 {
   "status": "success",
-  "pipeline_path": "artifacts\\models\\pipeline.joblib",
-  "holdout_path": "data\\processed\\api_holdout.parquet",
-  "onnx_model_path": "artifacts\\models\\lightgbm_model.onnx",
+  "pipeline_path": "artifacts/models/pipeline.joblib",
+  "holdout_path": "data/processed/api_holdout.parquet",
+  "onnx_model_path": "artifacts/models/lightgbm_model.onnx",
   "n_rows": 500,
-  "native_pipeline_total_ms": 25.18469999995432,
-  "native_pipeline_ms_per_row": 0.05036939999990864,
+  "native_pipeline_total_ms": 31.914199935272336,
+  "native_pipeline_ms_per_row": 0.06382839987054467,
   "native_pipeline_mean_proba": 0.3681883132194876,
-  "onnx_total_ms": 10.528500000873464,
-  "onnx_ms_per_row": 0.02105700000174693,
-  "native_vs_onnx_speedup": 2.3920501493911717,
+  "onnx_total_ms": 12.51319982111454,
+  "onnx_ms_per_row": 0.02502639964222908,
+  "native_vs_onnx_speedup": 2.550442763762224,
   "onnx_outputs_count": 2,
   "interpretation": "ONNX Runtime inference was successfully benchmarked on the LightGBM estimator after Python preprocessing."
 }

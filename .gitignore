@@ -85,7 +85,6 @@ artifacts/models/*.onnx
 !reports/
 !reports/monitoring/
 !reports/performance/
-!reports/screenshots/
 reports/monitoring/*.html
 
 # --- Docker local ---

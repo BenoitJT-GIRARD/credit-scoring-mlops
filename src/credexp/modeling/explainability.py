@@ -51,14 +51,26 @@ def unpack_pipeline(pipeline: Any) -> tuple[Any, Any]:
     return preprocess, model
 
 
-def get_feature_names(preprocess: Any) -> np.ndarray | None:
-    # Many sklearn transformers support get_feature_names_out
+def get_feature_names(preprocess: Any, X: pd.DataFrame | None = None) -> np.ndarray | None:
+    """Name the columns the model actually sees.
+
+    ``get_feature_names_out`` is the right answer when every step implements it. The
+    shipped pipeline has a ``FunctionTransformer`` that does not, and the whole chain then
+    refuses -- which is why every published SHAP figure was labelled "Feature 32" instead
+    of naming a column. A plot that names nothing explains nothing.
+
+    The fallback is exact rather than approximate: the steps before the estimator here are
+    one-to-one on columns, so the input column order *is* the output order. It only applies
+    when the transformed width matches the input width, so a step that adds or drops
+    columns falls through to ``None`` rather than mislabelling the plot.
+    """
     if hasattr(preprocess, "get_feature_names_out"):
         try:
-            names = preprocess.get_feature_names_out()
-            return np.asarray(names)
-        except Exception:
-            return None
+            return np.asarray(preprocess.get_feature_names_out())
+        except Exception:  # noqa: BLE001 - any step may refuse; the fallback handles it
+            pass
+    if X is not None:
+        return np.asarray(list(X.columns))
     return None
 
 
@@ -67,8 +79,11 @@ def transform_X(preprocess: Any, X: pd.DataFrame) -> tuple[np.ndarray, np.ndarra
     # sparse -> dense if needed (SHAP likes dense for some plots)
     if hasattr(Xt, "toarray"):
         Xt = Xt.toarray()
-    feature_names = get_feature_names(preprocess)
-    return np.asarray(Xt), feature_names
+    Xt = np.asarray(Xt)
+    feature_names = get_feature_names(preprocess, X)
+    if feature_names is not None and len(feature_names) != Xt.shape[1]:
+        feature_names = None
+    return Xt, feature_names
 
 
 def lgbm_gain_importance(model: Any, feature_names: np.ndarray | None) -> pd.DataFrame:

@@ -1,7 +1,7 @@
 {
-  "single_total_ms_for_50_calls": 146.37039999979606,
-  "single_avg_ms_per_row": 2.9274079999959213,
-  "batch_total_ms_for_50_rows": 4.449999998541898,
-  "batch_avg_ms_per_row": 0.08899999997083796,
-  "speedup_factor_per_row": 32.89222472983287
+  "single_total_ms_for_50_calls": 204.0856999810785,
+  "single_avg_ms_per_row": 4.08171399962157,
+  "batch_total_ms_for_50_rows": 5.569699918851256,
+  "batch_avg_ms_per_row": 0.11139399837702513,
+  "speedup_factor_per_row": 36.64213565444131
 }

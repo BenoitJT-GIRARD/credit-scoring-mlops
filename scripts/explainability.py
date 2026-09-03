@@ -1,106 +1,112 @@
+"""Feature importance and SHAP figures for the model that is actually served.
+
+By default this reads the frozen artefact and the scoring holdout, which is what a reader
+has: the MLflow registry is a training-time convenience and is not shipped. Pass
+``--from-registry`` to explain the latest registered version instead.
+"""
+
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
 
-import mlflow
+import joblib
 import pandas as pd
-from mlflow.tracking import MlflowClient
 
+from credexp.config import settings
 from credexp.modeling.explainability import (
     ExplainConfig,
     run_explainability,
     split_X_y_from_features,
 )
 
-
-def resolve_project_root() -> Path:
-    cwd = Path().resolve()
-    root = cwd
-    while root != root.parent and not (root / "src").exists():
-        root = root.parent
-    if not (root / "src").exists():
-        raise RuntimeError("Project root not found (missing 'src').")
-    return root
+ROOT = Path(__file__).resolve().parents[1]
 
 
-def load_latest_registry_model(model_name: str):
-    client = MlflowClient()
-    versions = client.search_model_versions(f"name='{model_name}'")
-    if len(versions) == 0:
-        raise RuntimeError(f"No model versions found in registry for: {model_name}")
-
-    latest = sorted(versions, key=lambda v: int(v.version))[-1]
-    model_uri = f"models:/{model_name}/{latest.version}"
-    pipeline = mlflow.sklearn.load_model(model_uri)
-    return pipeline, latest.version, latest.run_id
+def load_from_artifact() -> tuple[object, str]:
+    path = settings.artifacts_dir / "models" / "pipeline.joblib"
+    if not path.exists():
+        raise SystemExit(f"{path} is missing; run scripts/train_final.py first.")
+    return joblib.load(path), "local-joblib"
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model-name", type=str, default="credit_scoring_model")
-    parser.add_argument("--features", type=str, default="data/processed/features.parquet")
-    parser.add_argument("--out-dir", type=str, default="reports/explainability")
-    parser.add_argument("--n-background", type=int, default=5000)
-    parser.add_argument("--n-sample", type=int, default=1500)
-    parser.add_argument("--random-state", type=int, default=42)
-    parser.add_argument("--log-mlflow", action="store_true", help="Log figures as MLflow artifacts")
-    args = parser.parse_args()
+def load_from_registry(model_name: str) -> tuple[object, str]:
+    import mlflow
+    from mlflow.tracking import MlflowClient
 
-    root = resolve_project_root()
-    features_path = (root / args.features).resolve()
-    out_dir = (root / args.out_dir).resolve()
-
-    # IMPORTANT: use the same DB as your project (sqlite)
-    db_path = (root / "mlflow" / "mlflow.db").resolve()
+    db_path = (ROOT / "mlflow" / "mlflow.db").resolve()
     tracking_uri = f"sqlite:///{db_path.as_posix()}"
-
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_registry_uri(tracking_uri)
 
-    # Load data
-    df = pd.read_parquet(features_path)
-    X, y = split_X_y_from_features(df)
+    versions = MlflowClient().search_model_versions(f"name='{model_name}'")
+    if not versions:
+        raise SystemExit(f"no registered versions for {model_name} in {tracking_uri}")
+    latest = sorted(versions, key=lambda v: int(v.version))[-1]
+    return mlflow.sklearn.load_model(f"models:/{model_name}/{latest.version}"), str(latest.version)
 
-    # Load model from registry (latest version)
-    pipeline, version, run_id = load_latest_registry_model(args.model_name)
 
-    cfg = ExplainConfig(
-        n_background=args.n_background,
-        n_sample=args.n_sample,
-        random_state=args.random_state,
+def load_frame(explicit: Path | None) -> pd.DataFrame:
+    """The set the model is explained on: the training matrix when it is available, the
+    scoring holdout otherwise. Both describe the same population; the holdout is simply
+    what survives without the raw Kaggle tables."""
+    candidates = [explicit] if explicit else [
+        settings.data_dir / "processed" / "features.parquet",
+        settings.data_dir / "processed" / "api_holdout.parquet",
+    ]
+    for candidate in candidates:
+        if candidate and candidate.exists():
+            frame = pd.read_parquet(candidate)
+            print(f"explaining on {candidate.name}: {len(frame)} rows")
+            return frame
+    raise SystemExit(
+        "no feature frame found. Rebuild one from the raw Kaggle tables with "
+        "scripts/build_features.py."
+    )
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--from-registry", action="store_true")
+    parser.add_argument("--model-name", default="credit_scoring_model")
+    parser.add_argument("--features", type=Path, default=None)
+    parser.add_argument("--out-dir", type=Path, default=ROOT / "reports" / "explainability")
+    parser.add_argument("--n-background", type=int, default=5000)
+    parser.add_argument("--n-sample", type=int, default=1500)
+    parser.add_argument("--random-state", type=int, default=42)
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+
+    frame = load_frame(args.features)
+    if "TARGET" in frame.columns:
+        X, _ = split_X_y_from_features(frame)
+    else:
+        X = frame
+
+    pipeline, version = (
+        load_from_registry(args.model_name) if args.from_registry else load_from_artifact()
     )
 
     meta = run_explainability(
         pipeline=pipeline,
         X_raw=X,
-        config=cfg,
-        out_dir=out_dir,
+        config=ExplainConfig(
+            n_background=args.n_background,
+            n_sample=args.n_sample,
+            random_state=args.random_state,
+        ),
+        out_dir=args.out_dir,
         topn_importance=30,
         max_display_shap=30,
     )
 
-    print("Explainability metadata:")
-    for k, v in meta.items():
-        print(f"  {k}: {v}")
-    print("Model:", args.model_name, "| version:", version, "| run_id:", run_id)
-    print("Figures in:", out_dir / "figures")
-
-    if args.log_mlflow:
-        # attach explainability artifacts to the SAME run that produced the model if possible
-        # (we can also create a new run; simplest is new run with linkage)
-        with mlflow.start_run(run_name=f"explain_{args.model_name}_v{version}"):
-            mlflow.log_param("model_name", args.model_name)
-            mlflow.log_param("model_version", int(version))
-            mlflow.log_param("model_run_id", run_id)
-            mlflow.log_params(
-                {
-                    "n_background": cfg.n_background,
-                    "n_sample": cfg.n_sample,
-                    "random_state": cfg.random_state,
-                }
-            )
-            mlflow.log_artifacts(str(out_dir), artifact_path="explainability")
+    print(f"model version: {version}")
+    for key, value in meta.items():
+        print(f"  {key}: {value}")
+    print("figures in:", args.out_dir / "figures")
 
 
 if __name__ == "__main__":

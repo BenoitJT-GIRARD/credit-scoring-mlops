@@ -42,7 +42,7 @@ def load_features(features_path: Path | None = None) -> Dataset:
     y_train = train["TARGET"].astype(int)
     X_train = train.drop(columns=["TARGET"])
 
-    # test Kaggle n'a pas TARGET; pour notre API holdout on aura un autre fichier
+    # The Kaggle test split carries no TARGET; the API holdout is a separate file.
     y_test = None
     X_test = test.drop(columns=["TARGET"], errors="ignore")
 

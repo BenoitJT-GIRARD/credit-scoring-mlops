@@ -62,7 +62,14 @@ def main() -> None:
     s = io.StringIO()
     stats = pstats.Stats(profiler, stream=s).sort_stats("cumulative")
     stats.print_stats(20)
-    txt_path.write_text(s.getvalue(), encoding="utf-8")
+    # cProfile prints absolute paths, which pins the committed report to whoever ran it.
+    # Strip the project root so the table reads the same on every machine.
+    report = (
+        s.getvalue()
+        .replace(str(settings.project_root) + "\\", "")
+        .replace(str(settings.project_root) + "/", "")
+    )
+    txt_path.write_text(report, encoding="utf-8")
 
     payload = {
         "n_rows": len(X),
@@ -70,14 +77,14 @@ def main() -> None:
         "avg_ms": avg_ms,
         "min_ms": min_ms,
         "max_ms": max_ms,
-        "stats_file": str(stats_path),
-        "top20_file": str(txt_path),
+        "stats_file": stats_path.as_posix(),
+        "top20_file": txt_path.as_posix(),
     }
     metrics_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     print(json.dumps(payload, indent=2))
     print("\nTop 20 cumulative functions:\n")
-    print(s.getvalue())
+    print(report)
 
 
 if __name__ == "__main__":
