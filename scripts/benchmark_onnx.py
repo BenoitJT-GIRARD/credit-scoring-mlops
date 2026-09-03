@@ -62,8 +62,8 @@ def main() -> None:
             from onnxmltools import convert_lightgbm
             from onnxmltools.convert.common.data_types import FloatTensorType
 
-            # Pipeline sklearn : preprocessing = toutes les étapes sauf la dernière,
-            # estimator = dernière étape, normalement LGBMClassifier.
+            # In a sklearn Pipeline the preprocessing is every step but the last,
+            # and the estimator is the last one -- here a LGBMClassifier.
             preprocessor = pipe[:-1]
             estimator = pipe[-1]
 

@@ -55,7 +55,7 @@ def _make_pipeline(model_name: str, activation: str | None, cfg: TrainConfig):
     steps.extend(prep_steps)
 
     if model_name == "dummy":
-        # activation contient ici la "strategy": "most_frequent" ou "stratified"
+        # here `activation` carries the dummy strategy: "most_frequent" or "stratified"
         model = DummyClassifier(strategy=activation or "most_frequent")
     elif model_name == "lr":
         class_weight = "balanced" if cfg.imbalance == "balanced" else None
