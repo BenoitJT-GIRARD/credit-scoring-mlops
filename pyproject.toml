@@ -110,6 +110,14 @@ addopts = """
 """
 testpaths = ["tests"]
 pythonpath = ["src"]
+# Warnings are errors. Each exemption names the message it silences and comes
+# from a dependency; nothing here silences a whole category.
+filterwarnings = [
+    "error",
+    # protobuf calls datetime.utcfromtimestamp at import time, reached through mlflow's
+    # entity module. Raising there kills collection before a single test runs.
+    "ignore:datetime.datetime.utcfromtimestamp:DeprecationWarning",
+]
 
 [tool.bandit]
 targets = ["src/credexp"]
