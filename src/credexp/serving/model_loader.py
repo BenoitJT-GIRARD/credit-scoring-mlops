@@ -12,6 +12,7 @@ from mlflow.tracking import MlflowClient
 
 from credexp.config import settings
 from credexp.data.io import processed_dir
+from credexp.modeling.manifest import ModelManifest, read_manifest
 from credexp.serving.failures import FailureKind
 from credexp.utils.logging import get_logger
 
@@ -185,6 +186,19 @@ def _should_use_joblib(load_mode: str, model_uri: str) -> bool:
     return use_local_model or load_mode in {"joblib", "local"} or not model_uri
 
 
+def _load_manifest() -> ModelManifest | None:
+    """Read the model manifest beside the artefact, if the training wrote one.
+
+    A manifest whose schema this code does not read raises rather than being ignored: a
+    schema bump means the feature columns mean something else, and serving them anyway
+    would produce predictions from inputs the model never saw in that sense.
+    """
+    path = _first_existing_path(
+        [os.getenv("MODEL_MANIFEST_PATH"), _model_dir() / "model_manifest.json"]
+    )
+    return read_manifest(path) if path else None
+
+
 def load_model_bundle() -> ModelBundle:
     """Load model, threshold and feature schema.
 
@@ -233,8 +247,21 @@ def load_model_bundle() -> ModelBundle:
             pipe = _load_local_joblib_model()
             model_version = os.getenv("MODEL_VERSION", "joblib-fallback")
 
-    threshold = _load_threshold()
-    feature_columns = _load_feature_columns(pipe=pipe)
+    manifest = _load_manifest()
+    if manifest is not None:
+        # The manifest is the single source when it exists: threshold and feature order
+        # come from the same file the training wrote, so the two cannot drift apart.
+        threshold = manifest.threshold
+        feature_columns = list(manifest.feature_columns)
+    else:
+        # Artefacts trained before the manifest existed. Kept working rather than refused,
+        # but the log says which path was taken so a stale artefact is visible.
+        log.warning(
+            "model_manifest_missing",
+            extra={"searched": str(_model_dir() / "model_manifest.json")},
+        )
+        threshold = _load_threshold()
+        feature_columns = _load_feature_columns(pipe=pipe)
 
     return ModelBundle(
         pipe=pipe,

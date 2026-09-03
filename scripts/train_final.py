@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import shutil
+import subprocess  # nosec B404 - one call, on a constant argv
 from pathlib import Path
 
 import joblib
@@ -12,6 +15,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
 from credexp.config import ARTIFACTS_DIR, DATA_DIR, settings
+from credexp.modeling.manifest import (
+    SCHEMA_VERSION,
+    ModelManifest,
+    best_trial,
+    utc_now,
+    write_manifest,
+)
 from credexp.modeling.pipelines import make_numeric_steps
 from credexp.modeling.threshold import business_cost, find_best_threshold
 from credexp.utils.logging import get_logger
@@ -22,6 +32,32 @@ try:
     import lightgbm as lgb
 except Exception as e:
     raise RuntimeError("LightGBM must be installed to run train_final.py") from e
+
+
+#: Where the tuning run leaves its trials. Tracked, so the final training and the tuning
+#: that justified it stay attached to each other in the same commit.
+TUNING_ARTEFACT = ARTIFACTS_DIR / "reports" / "optuna_trials.csv"
+
+
+def _frame_hash(frame: pd.DataFrame) -> str:
+    """A fingerprint of the training data, so a manifest names the data it saw."""
+    digest = hashlib.sha256()
+    digest.update(str(frame.shape).encode())
+    digest.update(pd.util.hash_pandas_object(frame, index=False).values.tobytes())
+    return digest.hexdigest()[:16]
+
+
+def _git_revision() -> str:
+    """The commit this model was trained from, or "unknown" outside a checkout."""
+    git = shutil.which("git")
+    if git is None:
+        return "unknown"
+    try:
+        return subprocess.check_output(  # nosec B603 - absolute path, constant argv
+            [git, "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL
+        ).strip()[:12]
+    except (subprocess.SubprocessError, OSError):
+        return "unknown"
 
 
 def main() -> None:
@@ -72,21 +108,11 @@ def main() -> None:
         stratify=y_dev,
     )
 
-    # Tuned by Optuna. Declared once and reused for both the model and the MLflow log:
-    # written twice, the two copies drift apart and the run then documents parameters the
-    # model never used — a traceability that lies is worse than none.
+    # Read from the tuning artefact, never retyped. They used to be copied here by hand
+    # from a previous Optuna run, which meant the final training depended on a result no
+    # file connected it to — and a typo in either copy would have been invisible.
     class_weight = "balanced"
-    tuned_params = {
-        "n_estimators": 781,
-        "learning_rate": 0.022855,
-        "num_leaves": 59,
-        "max_depth": 6,
-        "min_child_samples": 117,
-        "subsample": 0.609379,
-        "colsample_bytree": 0.900507,
-        "reg_alpha": 1.233276,
-        "reg_lambda": 4.120487,
-    }
+    tuned_params, tuning_run = best_trial(TUNING_ARTEFACT)
     model = lgb.LGBMClassifier(
         **tuned_params,
         objective="binary",
@@ -188,9 +214,36 @@ def main() -> None:
         }
         threshold_path.write_text(json.dumps(threshold_payload, indent=2), encoding="utf-8")
 
+        # The manifest is what ties this artefact to the decisions behind it: which trial
+        # the hyperparameters came from, how the threshold was chosen, which imbalance
+        # strategy this model uses, and what data it saw. Without it the numbers are right
+        # and nothing connects them.
+        manifest_path = write_manifest(
+            out_dir / "model_manifest.json",
+            ModelManifest(
+                schema_version=SCHEMA_VERSION,
+                feature_columns=list(X_dev.columns),
+                threshold=float(best_thr),
+                threshold_selection={
+                    "split": "validation carved out of the development set",
+                    "criterion": "business_cost",
+                    "cost_fn": float(args.cost_fn),
+                    "cost_fp": float(args.cost_fp),
+                    "refit": "on the whole development set after selection",
+                },
+                hyperparameters=tuned_params,
+                tuning_run=tuning_run,
+                imbalance_strategy=f"class_weight={class_weight}",
+                training_data_hash=_frame_hash(X_dev),
+                trained_at=utc_now(),
+                git_revision=_git_revision(),
+            ),
+        )
+
         # 7) Log artifacts to MLflow
         mlflow.log_artifact(str(model_path), artifact_path="export")
         mlflow.log_artifact(str(threshold_path), artifact_path="export")
+        mlflow.log_artifact(str(manifest_path), artifact_path="export")
         mlflow.log_artifact(str(holdout_path), artifact_path="export")
 
         # Also log as MLflow model (appears under run -> Artifacts/model)

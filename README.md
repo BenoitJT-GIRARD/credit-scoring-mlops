@@ -68,6 +68,34 @@ published scores on it are often optimistic.
 experiments; it does not sit in the serving path. One fewer service to keep alive for a
 model that is not retrained on a schedule.
 
+**The artefact carries a manifest.** `model_manifest.json` is written by the final
+training and read by the loader: the feature columns and their schema version, the
+threshold and how it was chosen, the hyperparameters and the tuning trial they came from,
+the imbalance strategy, a fingerprint of the training data, and the commit. The
+hyperparameters used to be copied into the training script by hand from a previous Optuna
+run, which meant the final model depended on a result no file connected it to. They are
+now read from the tracked trials, and a missing tuning artefact stops the training instead
+of letting it invent them.
+
+### Where leakage would come from, and why it does not
+
+The aggregations are the usual risk on this dataset, and they are safe here for a specific
+reason: every one is computed **per customer over their own history**, keyed on
+`SK_ID_CURR`, from tables that record what happened before the application. No aggregate
+is computed across customers, and none reaches forward in time.
+
+The two places that would need care if this were extended:
+
+- **A feature built from an outcome.** Nothing here touches `TARGET` outside the label
+  itself, but a "number of previous defaults" aggregate drawn from the wrong table would,
+  and it would look like an ordinary count.
+- **Preprocessing fit outside the fold.** Handled by construction — imputation and scaling
+  are steps of the `Pipeline`, so they are fit on the training fold only — and it is worth
+  naming, because it is the leak that most often survives a review on this dataset.
+
+The check that would catch a regression is not a test but a smell: a single feature whose
+importance dwarfs every other. None does here.
+
 ## The decision analysis
 
 This is the part that distinguishes a model from a decision, and it is where I would start
