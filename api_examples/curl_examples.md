@@ -1,8 +1,9 @@
-﻿# API Test Examples with curl
+# API Test Examples with curl
 
-Exemples de requêtes `curl` pour tester les principaux endpoints de l'API locale.
+One `curl` per route, against the local service. The `^` line continuations are
+Windows `cmd`; on a POSIX shell use `\`.
 
-Base URL utilisée : `http://127.0.0.1:8000`
+Base URL: `http://127.0.0.1:8000`. Nothing here needs a key.
 
 ## Health
 
