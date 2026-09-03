@@ -1,3 +1,11 @@
+"""The subgroup report counts what it claims, including where it must refuse to.
+
+Age bands come out of `DAYS_BIRTH`, which is negative; a sign error there would silently
+put every applicant in one band. And a group with no positives reports no false-negative
+rate rather than a zero -- a rate over an empty denominator that reads as perfect is the
+worst kind of fairness number.
+"""
+
 import numpy as np
 
 from credexp.modeling.fairness import age_bands, group_report

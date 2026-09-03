@@ -1,3 +1,5 @@
+"""Latency of `/predict` over fifty single-applicant calls, against a running service."""
+
 from __future__ import annotations
 
 import json

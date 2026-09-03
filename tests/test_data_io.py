@@ -1,3 +1,5 @@
+"""A frame written to parquet and read back is the same frame."""
+
 from __future__ import annotations
 
 from pathlib import Path

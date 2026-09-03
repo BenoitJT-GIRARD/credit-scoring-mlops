@@ -1,3 +1,10 @@
+"""Paths, MLflow locations and the environment overrides, in one settings object.
+
+MLflow lives under `mlflow/` as a SQLite backend rather than a filesystem store: the
+filesystem backend is deprecated, and a registry that cannot answer a version query is a
+registry the training cannot read its own hyper-parameters back out of.
+"""
+
 from __future__ import annotations
 
 import os

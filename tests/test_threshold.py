@@ -1,3 +1,11 @@
+"""Choosing the threshold, and pricing the two shortcuts that were taken while choosing it.
+
+`split_threshold_cost` measures selecting the threshold on the fold that then scores it;
+`threshold_shift` measures calibrating on one model and applying to another. Both have a
+case where the answer must be zero -- a bias estimator that never returns zero is measuring
+its own noise.
+"""
+
 import numpy as np
 
 from credexp.modeling.threshold import (

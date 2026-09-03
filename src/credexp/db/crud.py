@@ -1,3 +1,10 @@
+"""Building the row that records one decision.
+
+The payload is stored as sent, not as a projection onto the columns that existed when the
+table was designed. A decision that cannot be replayed against its own input is not
+auditable.
+"""
+
 from __future__ import annotations
 
 from credexp.db.models import PredictionLog

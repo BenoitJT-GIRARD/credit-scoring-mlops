@@ -1,3 +1,5 @@
+"""Start the API locally, without Docker."""
+
 import os
 
 import uvicorn

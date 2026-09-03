@@ -1,3 +1,10 @@
+"""Two transformers the pipeline needs before the estimator sees anything.
+
+`InfToNan` because a ratio with a zero denominator produces an infinity that the imputer
+does not treat as missing; `Clipper` because a single extreme value moves a scaler more
+than the other three hundred thousand rows together.
+"""
+
 from __future__ import annotations
 
 import numpy as np

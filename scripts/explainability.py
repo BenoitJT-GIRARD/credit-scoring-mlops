@@ -50,10 +50,14 @@ def load_frame(explicit: Path | None) -> pd.DataFrame:
     """The set the model is explained on: the training matrix when it is available, the
     scoring holdout otherwise. Both describe the same population; the holdout is simply
     what survives without the raw Kaggle tables."""
-    candidates = [explicit] if explicit else [
-        settings.data_dir / "processed" / "features.parquet",
-        settings.data_dir / "processed" / "api_holdout.parquet",
-    ]
+    candidates = (
+        [explicit]
+        if explicit
+        else [
+            settings.data_dir / "processed" / "features.parquet",
+            settings.data_dir / "processed" / "api_holdout.parquet",
+        ]
+    )
     for candidate in candidates:
         if candidate and candidate.exists():
             frame = pd.read_parquet(candidate)

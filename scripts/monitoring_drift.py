@@ -1,3 +1,9 @@
+"""Compare the logged requests against the reference sample and write the Evidently report.
+
+The HTML is not versioned -- Evidently embeds its data and one report reached 34 MB. The
+metadata of each run is.
+"""
+
 from __future__ import annotations
 
 import argparse

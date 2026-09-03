@@ -1,3 +1,14 @@
+"""The routes, the middleware that stamps a request id, and the best-effort decision log.
+
+Best-effort is the deliberate part: a database that is down does not stop the service from
+answering. It also means an empty log with a healthy `/predict` is a silent failure, which
+is why the failure counter exists beside it.
+
+`/predict_batch` actually batches -- one frame, one `predict_proba` -- because the
+repository presents batching as its retained optimisation, and an endpoint that loops would
+make that claim false while looking identical from outside.
+"""
+
 from __future__ import annotations
 
 import os

@@ -1,3 +1,10 @@
+"""Cross-validated training, tracked in MLflow.
+
+The threshold is chosen inside the fold, on a split the scoring fold never sees. It used to
+be chosen on the fold it was then scored on, and that shortcut is worth 0.0029 per
+applicant -- small, real, and free to remove.
+"""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass

@@ -1,3 +1,9 @@
+"""Search LightGBM's hyper-parameters against the business cost, and record the trials.
+
+`train_final.py` reads the best trial back out. Tuning for a ranking metric and then
+choosing a threshold optimises two different things in sequence.
+"""
+
 from __future__ import annotations
 
 import argparse

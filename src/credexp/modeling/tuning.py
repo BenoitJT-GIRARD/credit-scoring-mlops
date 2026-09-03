@@ -1,3 +1,9 @@
+"""Optuna, optimising the business cost rather than a ranking metric.
+
+Tuning for AUC and then choosing a threshold optimises two different things in sequence.
+The objective here is the cost the threshold will actually be chosen against.
+"""
+
 from __future__ import annotations
 
 import numpy as np

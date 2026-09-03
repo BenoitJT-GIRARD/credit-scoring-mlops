@@ -1,3 +1,8 @@
+"""Run the whole decision analysis and write `reports/decision/`.
+
+One entry point, so the README, the model card and the figures cannot cite different runs.
+"""
+
 from credexp.modeling.decision_report import run_decision_analysis
 
 if __name__ == "__main__":

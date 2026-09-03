@@ -1,3 +1,14 @@
+"""Choosing the operating point, and asking how much the choice is worth.
+
+`find_best_threshold` minimises an expected cost in which a default costs ten times a
+wrongful refusal -- the assumption everything downstream is conditional on.
+
+The other three functions exist because a threshold reported without them is a number
+nobody can weigh. `threshold_spread` reselects it on resamples and returns the interval it
+lands in; `split_threshold_cost` prices choosing it on the fold that then scores it; and
+`threshold_shift` prices calibrating on one model and applying to another.
+"""
+
 from __future__ import annotations
 
 import numpy as np

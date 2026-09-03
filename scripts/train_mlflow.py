@@ -1,3 +1,9 @@
+"""Cross-validate the model families and log every run to MLflow.
+
+Dummy baselines, a logistic regression, two MLP activations and LightGBM, on the same folds
+and the same cost. This is the experiment log; it is not what the API serves.
+"""
+
 from __future__ import annotations
 
 import argparse

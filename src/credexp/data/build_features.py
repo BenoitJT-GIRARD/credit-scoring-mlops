@@ -1,3 +1,14 @@
+"""The seven Home Credit tables, joined into one feature matrix.
+
+Every aggregate is computed **over one customer's own history**, keyed on `SK_ID_CURR`,
+from tables that record what happened before the application. No aggregate crosses
+customers and none reaches forward in time -- which is the reason the published scores on
+this dataset are not the optimistic ones.
+
+`_check_raw_files` fails early and by name: a missing table produces a feature matrix that
+is silently short of a hundred columns, and the model trains on it without complaint.
+"""
+
 from __future__ import annotations
 
 import gc

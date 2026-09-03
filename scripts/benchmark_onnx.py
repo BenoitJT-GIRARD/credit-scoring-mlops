@@ -1,3 +1,10 @@
+"""Convert the LightGBM estimator to ONNX and time it against the native pipeline.
+
+Only the estimator converts: the preprocessing stays in Python, so this measures the part
+that could move and not an end-to-end port. A conversion failure is recorded as such rather
+than raising -- an optimisation that did not work out is information.
+"""
+
 from __future__ import annotations
 
 import json

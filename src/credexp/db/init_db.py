@@ -1,3 +1,5 @@
+"""Create the tables. Idempotent."""
+
 from __future__ import annotations
 
 from credexp.db.models import Base

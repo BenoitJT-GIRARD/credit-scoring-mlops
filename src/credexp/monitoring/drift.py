@@ -1,3 +1,13 @@
+"""Comparing what callers send now against the population the model was fit on.
+
+Measured on the **raw API input**, not on the engineered feature space. That is the right
+level for catching a change in the traffic and the wrong level for catching a change in
+what an aggregate means; only the first is watched here.
+
+`align_reference_and_current` keeps the intersection of the columns, because a caller sends
+what it has and the reference has everything.
+"""
+
 from __future__ import annotations
 
 import json

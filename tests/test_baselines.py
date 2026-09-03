@@ -1,3 +1,9 @@
+"""The trivial policies cost what arithmetic says they cost, and reproduce.
+
+They are the floor the model's 0.4888 per applicant is read against. A floor computed
+wrongly makes the model look better or worse than it is, and nothing else would catch it.
+"""
+
 import numpy as np
 
 from credexp.modeling.baselines import trivial_baselines

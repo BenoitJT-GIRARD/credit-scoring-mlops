@@ -1,3 +1,5 @@
+"""Where the data lives, and the two formats it is read and written in."""
+
 from __future__ import annotations
 
 from pathlib import Path

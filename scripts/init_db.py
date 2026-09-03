@@ -1,3 +1,5 @@
+"""Create the prediction-log table. Idempotent."""
+
 from credexp.db.init_db import init_db
 
 if __name__ == "__main__":

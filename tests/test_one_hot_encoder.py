@@ -1,3 +1,5 @@
+"""The encoder produces the dummy columns the feature build expects, and names them."""
+
 import pandas as pd
 
 from credexp.data.build_features import one_hot_encoder

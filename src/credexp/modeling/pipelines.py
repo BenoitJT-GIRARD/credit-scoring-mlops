@@ -1,3 +1,9 @@
+"""The numeric branch of the preprocessing, built as pipeline steps rather than applied first.
+
+Fit inside the training fold, so nothing about the validation fold reaches the transformer.
+It is the most common leak on this dataset.
+"""
+
 from __future__ import annotations
 
 from sklearn.impute import SimpleImputer

@@ -1,3 +1,9 @@
+"""Profile `predict_proba` over two hundred rows, and write the cumulative-time table.
+
+Paths in the output are made relative to the repository root: an absolute path pins the
+committed report to whoever ran it.
+"""
+
 from __future__ import annotations
 
 import cProfile

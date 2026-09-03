@@ -1,3 +1,10 @@
+"""The cost-ratio sweep behaves the way the arithmetic requires, and reproduces.
+
+The load-bearing assertion is that a costlier false negative lowers the optimal threshold.
+If it did not, the sensitivity curve in the README would be an artefact rather than a
+property of the cost function.
+"""
+
 import numpy as np
 
 from credexp.modeling.sensitivity import bootstrap_cost_ci, cost_ratio_sweep

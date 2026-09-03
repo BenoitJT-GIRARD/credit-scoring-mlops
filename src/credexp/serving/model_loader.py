@@ -1,3 +1,15 @@
+"""Loading the artefact the API serves, and everything that has to travel with it.
+
+Three files, not one: the pipeline, the feature columns it was fitted on, and the
+threshold. Loading the model without the other two gives a service that scores confidently
+in the wrong column order, at an operating point nothing documented.
+
+Two modes. `joblib` reads a frozen artefact from disk and is what the containers use;
+`mlflow` resolves a registered version. The registry is a training-time convenience and is
+deliberately not in the serving path -- one fewer service to keep alive for a model that is
+not retrained on a schedule.
+"""
+
 from __future__ import annotations
 
 import json

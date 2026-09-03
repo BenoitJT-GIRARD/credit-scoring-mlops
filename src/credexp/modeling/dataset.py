@@ -1,3 +1,9 @@
+"""Loading the feature matrix, and fingerprinting the file it came from.
+
+The SHA-256 goes into the run manifest. Two runs that disagree are then a question about
+which data they saw rather than a mystery.
+"""
+
 from __future__ import annotations
 
 import hashlib

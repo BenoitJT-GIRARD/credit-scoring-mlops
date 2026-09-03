@@ -1,3 +1,10 @@
+"""One call of fifty rows against fifty calls of one, on the same pipeline.
+
+Batching is the optimisation this repository retained, so the claim gets a number: the
+fixed costs -- Python overhead, pandas conversions, scikit-learn's validation -- are paid
+once instead of once per applicant.
+"""
+
 from __future__ import annotations
 
 import json

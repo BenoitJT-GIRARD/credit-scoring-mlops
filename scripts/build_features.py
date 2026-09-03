@@ -1,3 +1,8 @@
+"""Join the seven raw Kaggle tables into the feature matrix everything else reads.
+
+Needs the raw tables, which are not redistributed here.
+"""
+
 from __future__ import annotations
 
 import argparse

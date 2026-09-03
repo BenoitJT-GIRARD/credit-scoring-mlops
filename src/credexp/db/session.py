@@ -1,3 +1,5 @@
+"""The engine and session factory, built from the configured database URL."""
+
 from __future__ import annotations
 
 from sqlalchemy import create_engine

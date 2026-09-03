@@ -1,3 +1,13 @@
+"""Gain importance and SHAP, on the model that is actually served.
+
+`get_feature_names` carries the interesting part. `get_feature_names_out` refuses as soon
+as one step of the pipeline lacks it, and the `InfToNan` transformer does -- so every
+published SHAP figure was labelled `Feature 32` instead of naming a column. A plot that
+names nothing explains nothing. The fallback is the input column order, which is exact here
+because the steps before the estimator are one-to-one, and it falls through to `None`
+rather than mislabelling when the widths disagree.
+"""
+
 from __future__ import annotations
 
 import json

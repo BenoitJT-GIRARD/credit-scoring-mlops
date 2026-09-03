@@ -1,3 +1,5 @@
+"""JSON logging, so a request id can be grepped out of a container's output."""
+
 from __future__ import annotations
 
 import json

@@ -1,3 +1,5 @@
+"""Threshold-free metrics, and the confusion matrix at a given operating point."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

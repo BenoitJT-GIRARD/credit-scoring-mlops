@@ -1,3 +1,10 @@
+"""Fit the shipped model on the development set and write the artefact with its manifest.
+
+The hyper-parameters are read from the tracked Optuna trials rather than copied by hand,
+and a missing tuning artefact stops the run instead of letting it invent them. The manifest
+records the data fingerprint, the threshold and how it was chosen, and the commit.
+"""
+
 from __future__ import annotations
 
 import argparse

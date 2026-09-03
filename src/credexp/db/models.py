@@ -1,3 +1,9 @@
+"""The prediction log: one row per scored request, never updated.
+
+The score, the decision, the threshold and the model version travel together, because a
+probability without the threshold that turned it into a decision records nothing.
+"""
+
 from __future__ import annotations
 
 import uuid
