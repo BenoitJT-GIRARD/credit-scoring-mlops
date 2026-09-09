@@ -56,4 +56,17 @@ ENV PROMETHEUS_ENABLED=true
 
 EXPOSE 7860
 
+# Hugging Face Spaces runs containers as uid 1000, and nothing here needs root. nginx keeps
+# its pid under /tmp because /run belongs to root, and the three directories it writes to are
+# handed to the same user.
+RUN useradd --create-home --uid 1000 appuser \
+    && sed -i 's#^pid .*#pid /tmp/nginx.pid;#' /etc/nginx/nginx.conf \
+    && chown -R appuser:appuser /app /var/log/nginx /var/lib/nginx /etc/nginx/conf.d
+USER appuser
+
+# The probe is the public port, the one the Space answers on: a container that starts and
+# serves nothing looks healthy to an orchestrator without it.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7860/', timeout=3)"
+
 CMD ["/app/start.sh"]

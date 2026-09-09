@@ -10,6 +10,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d credexp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   api:
     build:
@@ -17,7 +22,8 @@ services:
       dockerfile: docker/api.Dockerfile
     container_name: credexp_api
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       API_HOST: 0.0.0.0
       API_PORT: 8000
@@ -38,8 +44,16 @@ services:
       dockerfile: docker/api.Dockerfile
     container_name: credexp_streamlit
     depends_on:
-      - api
-      - db
+      api:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/credexp
       API_BASE_URL: http://api:8000
@@ -53,7 +67,13 @@ services:
       dockerfile: docker/prometheus.Dockerfile
     container_name: credexp_prometheus
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     ports:
       - "9090:9090"
 
@@ -63,7 +83,14 @@ services:
       dockerfile: docker/grafana.Dockerfile
     container_name: credexp_grafana
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
     environment:
       # The stack is a local demonstration: the dashboard has to open without a login,
       # or the first thing a reader meets is a password prompt for an account nobody owns.
