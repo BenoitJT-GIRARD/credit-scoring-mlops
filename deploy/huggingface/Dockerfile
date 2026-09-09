@@ -11,9 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir uv
+RUN pip install --no-cache-dir uv==0.11.6
 
-COPY pyproject.toml uv.lock* /app/
+COPY pyproject.toml uv.lock /app/
 COPY README.md /app/README.md
 COPY src /app/src
 COPY scripts /app/scripts
@@ -26,7 +26,7 @@ COPY deploy/huggingface/start.sh /app/start.sh
 # Important on Windows: remove CRLF if Git converted line endings.
 RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
-RUN uv sync \
+RUN uv sync --frozen \
     --no-dev \
     --group data \
     --group ml \

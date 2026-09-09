@@ -10,16 +10,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir uv
+RUN pip install --no-cache-dir uv==0.11.6
 
-COPY pyproject.toml uv.lock* ./
+COPY pyproject.toml uv.lock ./
 COPY README.md ./
 COPY src ./src
 COPY scripts ./scripts
 COPY streamlit_app ./streamlit_app
 COPY artifacts/models ./artifacts/models
 
-RUN uv sync \
+RUN uv sync --frozen \
     --no-dev \
     --group serve \
     --group db \
