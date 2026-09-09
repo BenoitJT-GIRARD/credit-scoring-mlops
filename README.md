@@ -5,10 +5,10 @@ with the threshold that turns that probability into an accept-or-refuse decision
 measurement rather than by convention.
 
 **Project status** — finished, and archived in a runnable state. The hosted Space, the
-managed database and the API keys have been decommissioned; the CI workflows are frozen to
-manual trigger so that nothing here decays into a red badge on a project nobody maintains.
-Everything below runs locally with `docker compose up`. The one thing not shipped is the
-data: Home Credit's terms do not allow redistribution.
+managed database and the API keys have been decommissioned; everything below runs locally
+with `docker compose up`, monitoring included. The one thing not shipped is the data: Home
+Credit's terms do not allow redistribution. Continuous integration runs on push and on pull
+requests.
 
 ## The problem
 
