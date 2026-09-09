@@ -55,7 +55,6 @@ mlruns_old/
 data/raw/
 data/interim/
 data/processed/
-!data/**/.gitkeep
 
 # --- Generic temporary exports ---
 *.parquet
