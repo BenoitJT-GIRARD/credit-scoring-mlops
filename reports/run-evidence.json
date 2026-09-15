@@ -1,0 +1,21 @@
+{
+  "command": "uv run python scripts/smoke.py",
+  "ran_at": "2026-09-15",
+  "git_revision": "f67bd2a295a4b3d30fdb3b11fe308af8202c8512",
+  "tool_versions": {
+    "python": "3.12.12",
+    "lightgbm": "4.6.0",
+    "scikit-learn": "1.8.0",
+    "numpy": "1.26.4",
+    "pandas": "2.3.3",
+    "fastapi": "0.129.0",
+    "joblib": "1.5.3",
+    "uv": "uv 0.11.6 (65950801c 2026-04-09 x86_64-pc-windows-msvc)",
+    "docker": "Docker version 29.2.0, build 0b9d198"
+  },
+  "duration_seconds": 14.3,
+  "key_output": [
+    "reports/serving_smoke.json"
+  ],
+  "workflow_run_url": null
+}
