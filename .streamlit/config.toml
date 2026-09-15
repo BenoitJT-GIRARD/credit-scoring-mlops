@@ -2,9 +2,9 @@
 # the decision log.
 #
 # Without this file the buttons and the sliders ship Streamlit's factory colour, next to
-# charts drawn in the figures' own blue and amber. Every value below is a token of the
-# shared palette, and tests/unit/test_theme.py checks it against the module the figures
-# read, so a colour is still decided in exactly one place.
+# charts drawn in blue and amber. Every value below is taken from the module the figures
+# read, and tests/unit/test_theme.py checks it against that module, so a colour is still
+# decided in exactly one place.
 
 [theme]
 # The brand anchor, and not the amber. Amber is a SERIES colour in the figures: using it as

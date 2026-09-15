@@ -295,7 +295,7 @@ Not that the code runs. That what is published is true:
 - a request that names two features is scored on all 796, in the fitted order, and a frame
   whose columns were permuted is refused rather than scored.
 
-191 tests in three tiers, read by `pytest`: unit, integration, and one outer tier that starts
+193 tests in three tiers, read by `pytest`: unit, integration, and one outer tier that starts
 `uvicorn` in its own process and questions it over HTTP. That tier is what found a service
 taking two minutes to answer when PostgreSQL was unreachable.
 

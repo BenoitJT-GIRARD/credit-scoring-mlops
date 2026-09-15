@@ -230,7 +230,7 @@ def plot_shap_beeswarm(
         show=False,
         max_display=max_display,
         # The colour is the feature's own value, low to high: a sequential scale, and the
-        # figures', in place of the library's red-to-blue.
+        # project's, in place of the library's red-to-blue.
         cmap=sequential_cmap(),
     )
     # SHAP draws the figure, its colour bar and sometimes a second axes, and it names only

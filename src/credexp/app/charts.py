@@ -1,7 +1,7 @@
 """The three charts of the log page, drawn in the palette the figures of the README use.
 
 `st.bar_chart` and `st.line_chart` are one line each and paint in Streamlit's own colours,
-next to a page painted in the figures' palette. They also decide the binning themselves, which
+next to a page painted in this project's. They also decide the binning themselves, which
 on a probability between 0 and 1 is the one thing a reader of this page needs to control:
 the distribution is the earliest warning available, and it is only readable on a fixed
 scale.

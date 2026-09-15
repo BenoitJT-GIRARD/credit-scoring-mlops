@@ -86,6 +86,6 @@ says what accepting it would mean for the applicant being scored.
 
 ## The theme belongs to the repository
 
-`.streamlit/config.toml` carries the figures' palette, and the theme test is what keeps
-that file and the figures' module on the same four colours. Its own docstring says what is
+`.streamlit/config.toml` carries the page's four colours, and the theme test is what keeps
+that file and the figures' module on the same four. Its own docstring says what is
 missing from a page that ships without it.
