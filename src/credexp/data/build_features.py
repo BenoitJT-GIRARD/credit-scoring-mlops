@@ -48,7 +48,9 @@ def _check_raw_files(raw_path: Path) -> None:
     missing = [f for f in REQUIRED_RAW_FILES if not (raw_path / f).exists()]
     if missing:
         raise FileNotFoundError(
-            "Missing raw files in data/raw: " + ", ".join(missing) + f" (checked in: {raw_path})"
+            "Missing raw files in var/data/raw: "
+            + ", ".join(missing)
+            + f" (checked in: {raw_path})"
         )
 
 
@@ -62,7 +64,9 @@ def one_hot_encoder(df: pd.DataFrame, nan_as_category: bool = True):
 
 
 # Preprocess application_train.csv and application_test.csv
-def application_train_test(raw_path: Path, num_rows: int | None = None, nan_as_category: bool = False):
+def application_train_test(
+    raw_path: Path, num_rows: int | None = None, nan_as_category: bool = False
+):
     df = read_csv(raw_path / "application_train.csv", nrows=num_rows)
     test_df = read_csv(raw_path / "application_test.csv", nrows=num_rows)
     log.info(f"Train samples: {len(df)}, test samples: {len(test_df)}")
@@ -139,12 +143,16 @@ def bureau_and_balance(raw_path: Path, num_rows: int | None = None, nan_as_categ
         cat_aggregations[col + "_MEAN"] = ["mean"]
 
     bureau_agg = bureau.groupby("SK_ID_CURR").agg({**num_aggregations, **cat_aggregations})
-    bureau_agg.columns = pd.Index(["BURO_" + e[0] + "_" + e[1].upper() for e in bureau_agg.columns.tolist()])
+    bureau_agg.columns = pd.Index(
+        ["BURO_" + e[0] + "_" + e[1].upper() for e in bureau_agg.columns.tolist()]
+    )
 
     # Bureau: Active credits - using only numerical aggregations
     active = bureau[bureau["CREDIT_ACTIVE_Active"] == 1]
     active_agg = active.groupby("SK_ID_CURR").agg(num_aggregations)
-    active_agg.columns = pd.Index(["ACTIVE_" + e[0] + "_" + e[1].upper() for e in active_agg.columns.tolist()])
+    active_agg.columns = pd.Index(
+        ["ACTIVE_" + e[0] + "_" + e[1].upper() for e in active_agg.columns.tolist()]
+    )
     bureau_agg = bureau_agg.join(active_agg, how="left", on="SK_ID_CURR")
     del active, active_agg
     gc.collect()
@@ -152,7 +160,9 @@ def bureau_and_balance(raw_path: Path, num_rows: int | None = None, nan_as_categ
     # Bureau: Closed credits - using only numerical aggregations
     closed = bureau[bureau["CREDIT_ACTIVE_Closed"] == 1]
     closed_agg = closed.groupby("SK_ID_CURR").agg(num_aggregations)
-    closed_agg.columns = pd.Index(["CLOSED_" + e[0] + "_" + e[1].upper() for e in closed_agg.columns.tolist()])
+    closed_agg.columns = pd.Index(
+        ["CLOSED_" + e[0] + "_" + e[1].upper() for e in closed_agg.columns.tolist()]
+    )
     bureau_agg = bureau_agg.join(closed_agg, how="left", on="SK_ID_CURR")
     del bureau, closed, closed_agg
     gc.collect()
@@ -161,7 +171,9 @@ def bureau_and_balance(raw_path: Path, num_rows: int | None = None, nan_as_categ
 
 
 # Preprocess previous_applications.csv
-def previous_applications(raw_path: Path, num_rows: int | None = None, nan_as_category: bool = True):
+def previous_applications(
+    raw_path: Path, num_rows: int | None = None, nan_as_category: bool = True
+):
     prev = read_csv(raw_path / "previous_application.csv", nrows=num_rows)
     prev, cat_cols = one_hot_encoder(prev, nan_as_category)
 
@@ -196,12 +208,16 @@ def previous_applications(raw_path: Path, num_rows: int | None = None, nan_as_ca
     cat_aggregations = {col: ["mean"] for col in cat_cols}
 
     prev_agg = prev.groupby("SK_ID_CURR").agg({**num_aggregations, **cat_aggregations})
-    prev_agg.columns = pd.Index(["PREV_" + e[0] + "_" + e[1].upper() for e in prev_agg.columns.tolist()])
+    prev_agg.columns = pd.Index(
+        ["PREV_" + e[0] + "_" + e[1].upper() for e in prev_agg.columns.tolist()]
+    )
 
     # Previous Applications: Approved
     approved = prev[prev["NAME_CONTRACT_STATUS_Approved"] == 1]
     approved_agg = approved.groupby("SK_ID_CURR").agg(num_aggregations)
-    approved_agg.columns = pd.Index(["APPROVED_" + e[0] + "_" + e[1].upper() for e in approved_agg.columns.tolist()])
+    approved_agg.columns = pd.Index(
+        ["APPROVED_" + e[0] + "_" + e[1].upper() for e in approved_agg.columns.tolist()]
+    )
     prev_agg = prev_agg.join(approved_agg, how="left", on="SK_ID_CURR")
     del approved, approved_agg
     gc.collect()
@@ -209,7 +225,9 @@ def previous_applications(raw_path: Path, num_rows: int | None = None, nan_as_ca
     # Previous Applications: Refused
     refused = prev[prev["NAME_CONTRACT_STATUS_Refused"] == 1]
     refused_agg = refused.groupby("SK_ID_CURR").agg(num_aggregations)
-    refused_agg.columns = pd.Index(["REFUSED_" + e[0] + "_" + e[1].upper() for e in refused_agg.columns.tolist()])
+    refused_agg.columns = pd.Index(
+        ["REFUSED_" + e[0] + "_" + e[1].upper() for e in refused_agg.columns.tolist()]
+    )
     prev_agg = prev_agg.join(refused_agg, how="left", on="SK_ID_CURR")
     del refused, refused_agg, prev
     gc.collect()
@@ -232,7 +250,9 @@ def pos_cash(raw_path: Path, num_rows: int | None = None, nan_as_category: bool 
         aggregations[col] = ["mean"]
 
     pos_agg = pos.groupby("SK_ID_CURR").agg(aggregations)
-    pos_agg.columns = pd.Index(["POS_" + e[0] + "_" + e[1].upper() for e in pos_agg.columns.tolist()])
+    pos_agg.columns = pd.Index(
+        ["POS_" + e[0] + "_" + e[1].upper() for e in pos_agg.columns.tolist()]
+    )
 
     # Count pos cash accounts
     pos_agg["POS_COUNT"] = pos.groupby("SK_ID_CURR").size()
@@ -243,7 +263,9 @@ def pos_cash(raw_path: Path, num_rows: int | None = None, nan_as_category: bool 
 
 
 # Preprocess installments_payments.csv
-def installments_payments(raw_path: Path, num_rows: int | None = None, nan_as_category: bool = True):
+def installments_payments(
+    raw_path: Path, num_rows: int | None = None, nan_as_category: bool = True
+):
     ins = read_csv(raw_path / "installments_payments.csv", nrows=num_rows)
     ins, cat_cols = one_hot_encoder(ins, nan_as_category)
 
@@ -272,7 +294,9 @@ def installments_payments(raw_path: Path, num_rows: int | None = None, nan_as_ca
         aggregations[col] = ["mean"]
 
     ins_agg = ins.groupby("SK_ID_CURR").agg(aggregations)
-    ins_agg.columns = pd.Index(["INSTAL_" + e[0] + "_" + e[1].upper() for e in ins_agg.columns.tolist()])
+    ins_agg.columns = pd.Index(
+        ["INSTAL_" + e[0] + "_" + e[1].upper() for e in ins_agg.columns.tolist()]
+    )
 
     # Count installments accounts
     ins_agg["INSTAL_COUNT"] = ins.groupby("SK_ID_CURR").size()

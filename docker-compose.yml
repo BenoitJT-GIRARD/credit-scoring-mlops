@@ -19,7 +19,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: docker/api.Dockerfile
+      dockerfile: infra/api.Dockerfile
     container_name: credexp_api
     depends_on:
       db:
@@ -31,9 +31,9 @@ services:
       MODEL_LOAD_MODE: joblib
       MODEL_NAME: credit_scoring_model
       MODEL_VERSION: local-joblib
-      MODEL_JOBLIB_PATH: /app/artifacts/models/pipeline.joblib
-      THRESHOLD_PATH: /app/artifacts/models/threshold.json
-      FEATURE_COLUMNS_PATH: /app/artifacts/models/feature_columns.json
+      MODEL_JOBLIB_PATH: /app/models/pipeline.joblib
+      THRESHOLD_PATH: /app/models/threshold.json
+      FEATURE_COLUMNS_PATH: /app/models/feature_columns.json
       PROMETHEUS_ENABLED: "true"
     ports:
       - "8000:8000"
@@ -41,7 +41,7 @@ services:
   streamlit:
     build:
       context: .
-      dockerfile: docker/api.Dockerfile
+      dockerfile: infra/api.Dockerfile
     container_name: credexp_streamlit
     depends_on:
       api:
@@ -57,14 +57,14 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/credexp
       API_BASE_URL: http://api:8000
-    command: ["uv", "run", "streamlit", "run", "streamlit_app/Overview.py", "--server.address", "0.0.0.0", "--server.port", "8501"]
+    command: ["uv", "run", "streamlit", "run", "src/credexp/app/Overview.py", "--server.address", "0.0.0.0", "--server.port", "8501"]
     ports:
       - "8501:8501"
 
   prometheus:
     build:
       context: .
-      dockerfile: docker/prometheus.Dockerfile
+      dockerfile: infra/prometheus.Dockerfile
     container_name: credexp_prometheus
     depends_on:
       api:
@@ -80,7 +80,7 @@ services:
   grafana:
     build:
       context: .
-      dockerfile: docker/grafana.Dockerfile
+      dockerfile: infra/grafana.Dockerfile
     container_name: credexp_grafana
     depends_on:
       prometheus:
@@ -93,7 +93,7 @@ services:
       retries: 3
     environment:
       # The stack is a local demonstration: the dashboard has to open without a login,
-      # or the first thing a reader meets is a password prompt for an account nobody owns.
+      # or the first thing a reader meets is a password prompt for an account no one owns.
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
       GF_AUTH_BASIC_ENABLED: "false"

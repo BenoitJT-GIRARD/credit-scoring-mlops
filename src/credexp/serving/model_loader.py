@@ -18,14 +18,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import joblib
-import mlflow
 import pandas as pd
-from mlflow.tracking import MlflowClient
 
 from credexp.config import settings
 from credexp.data.io import processed_dir
 from credexp.modeling.manifest import ModelManifest, read_manifest
 from credexp.serving.failures import FailureKind
+from credexp.utils import MODELS_DIR
 from credexp.utils.logging import get_logger
 
 log = get_logger(__name__)
@@ -44,7 +43,7 @@ class ModelBundle:
 
 def _model_dir() -> Path:
     """Return the default local model artifact directory."""
-    return settings.artifacts_dir / "models"
+    return MODELS_DIR
 
 
 def _first_existing_path(candidates: list[str | Path | None]) -> Path | None:
@@ -63,7 +62,7 @@ def _load_threshold() -> float:
 
     Priority:
     1. THRESHOLD_PATH environment variable
-    2. artifacts/models/threshold.json
+    2. models/threshold.json
     3. DEFAULT_THRESHOLD environment variable
     4. 0.5 fallback
     """
@@ -86,9 +85,9 @@ def _load_feature_columns(pipe: object | None = None) -> list[str]:
 
     Priority:
     1. FEATURE_COLUMNS_PATH environment variable
-    2. artifacts/models/feature_columns.json
-    3. data/processed/api_holdout.parquet
-    4. data/processed/features.parquet
+    2. models/feature_columns.json
+    3. var/data/processed/api_holdout.parquet
+    4. var/data/processed/features.parquet
     5. pipe.feature_names_in_ if available
 
     The JSON option is preferred for remote deployment, because processed
@@ -120,8 +119,8 @@ def _load_feature_columns(pipe: object | None = None) -> list[str]:
 
     raise FileNotFoundError(
         "Could not load feature columns. Provide one of: "
-        "FEATURE_COLUMNS_PATH, artifacts/models/feature_columns.json, "
-        "data/processed/api_holdout.parquet, data/processed/features.parquet, "
+        "FEATURE_COLUMNS_PATH, models/feature_columns.json, "
+        "var/data/processed/api_holdout.parquet, var/data/processed/features.parquet, "
         "or a pipeline exposing feature_names_in_."
     )
 
@@ -145,7 +144,7 @@ def _load_local_joblib_model() -> object:
     if model_path is None:
         raise FileNotFoundError(
             "Local model not found. Expected one of: "
-            "MODEL_JOBLIB_PATH, PIPELINE_PATH, artifacts/models/pipeline.joblib."
+            "MODEL_JOBLIB_PATH, PIPELINE_PATH, models/pipeline.joblib."
         )
 
     return joblib.load(model_path)
@@ -155,8 +154,10 @@ def _resolve_model_version(model_name: str) -> str:
     """Resolve model version from MLflow Registry when available.
 
     This function is best-effort. If the registry is unavailable, it returns
-    'unknown' instead of breaking the API startup.
+    'unknown', and the API still starts.
     """
+    from mlflow.tracking import MlflowClient
+
     try:
         client = MlflowClient(
             tracking_uri=settings.mlflow_tracking_uri,
@@ -181,7 +182,15 @@ def _resolve_model_version(model_name: str) -> str:
 
 
 def _load_mlflow_model(model_uri: str, model_name: str) -> tuple[object, str]:
-    """Load model from MLflow Registry or MLflow model URI."""
+    """Load model from MLflow Registry or MLflow model URI.
+
+    MLflow is imported here and not at the top of the module, which is what lets the serving
+    image leave it out entirely. The registry is a training-time convenience: an API image
+    that installs it carries several hundred megabytes for a path it is configured never to
+    take.
+    """
+    import mlflow
+
     mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
     mlflow.set_registry_uri(settings.mlflow_registry_uri)
 
@@ -201,7 +210,7 @@ def _should_use_joblib(load_mode: str, model_uri: str) -> bool:
 def _load_manifest() -> ModelManifest | None:
     """Read the model manifest beside the artefact, if the training wrote one.
 
-    A manifest whose schema this code does not read raises rather than being ignored: a
+    A manifest whose schema this code does not read raises, and is never ignored: a
     schema bump means the feature columns mean something else, and serving them anyway
     would produce predictions from inputs the model never saw in that sense.
     """
@@ -220,9 +229,9 @@ def load_model_bundle() -> ModelBundle:
 
     Remote Hugging Face mode:
         MODEL_LOAD_MODE=joblib
-        MODEL_JOBLIB_PATH=/app/artifacts/models/pipeline.joblib
-        THRESHOLD_PATH=/app/artifacts/models/threshold.json
-        FEATURE_COLUMNS_PATH=/app/artifacts/models/feature_columns.json
+        MODEL_JOBLIB_PATH=/app/models/pipeline.joblib
+        THRESHOLD_PATH=/app/models/threshold.json
+        FEATURE_COLUMNS_PATH=/app/models/feature_columns.json
 
     Backward compatibility:
         USE_LOCAL_MODEL=true and PIPELINE_PATH are also supported.
@@ -266,7 +275,7 @@ def load_model_bundle() -> ModelBundle:
         threshold = manifest.threshold
         feature_columns = list(manifest.feature_columns)
     else:
-        # Artefacts trained before the manifest existed. Kept working rather than refused,
+        # Artefacts trained before the manifest existed. Kept working and not refused,
         # but the log says which path was taken so a stale artefact is visible.
         log.warning(
             "model_manifest_missing",

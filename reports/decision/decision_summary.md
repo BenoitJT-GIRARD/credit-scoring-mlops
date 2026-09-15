@@ -1,3 +1,5 @@
+<!-- Written by scripts/decision_analysis.py on 2026-09-15. Edits here are overwritten. -->
+
 | Question | Answer |
 |---|---|
 | Cost per applicant at the shipped threshold | 0.4888 (95% CI 0.4721–0.5068) |

@@ -76,8 +76,9 @@ def calibrate_isotonic(y_val: np.ndarray, p_val: np.ndarray):
     and only the scale moves. That is the whole point: if a recalibrated model scored
     differently on AUC, something other than calibration would have happened.
 
-    It is fitted on the validation split alone. Fitting it on the holdout would make the
-    holdout number meaningless, which is the mistake this function exists to avoid.
+    It is fitted on the validation split alone. A calibrator that has seen the holdout
+    leaves nothing honest to report on it, which is the mistake this function exists to
+    avoid.
     """
     model = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0)
     model.fit(np.asarray(p_val, dtype=float), np.asarray(y_val, dtype=float))

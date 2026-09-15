@@ -9,18 +9,19 @@ from __future__ import annotations
 
 import json
 import time
-from pathlib import Path
 from typing import Any
 
 import joblib
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
-PIPELINE_PATH = ROOT / "artifacts" / "models" / "pipeline.joblib"
-HOLDOUT_PATH = ROOT / "data" / "processed" / "api_holdout.parquet"
-OUT_PATH = ROOT / "reports" / "performance" / "onnx_benchmark.json"
-ONNX_PATH = ROOT / "artifacts" / "models" / "lightgbm_model.onnx"
+from credexp.utils import HOLDOUT_PATH, PERFORMANCE_DIR, PIPELINE_PATH, ROOT_DIR, VAR_DIR
+
+OUT_PATH = PERFORMANCE_DIR / "onnx_benchmark.json"
+
+#: The converted model. It is a build output, not a deliverable: `skl2onnx` writes it from
+#: the pipeline that is tracked, and the benchmark is what it exists for.
+ONNX_PATH = VAR_DIR / "models" / "lightgbm_model.onnx"
 
 
 def to_jsonable(value: Any) -> Any:
@@ -53,9 +54,9 @@ def main() -> None:
         "status": "started",
         # Relative to the repository root: an absolute path pins the committed report to
         # whoever happened to run it.
-        "pipeline_path": PIPELINE_PATH.relative_to(ROOT).as_posix(),
-        "holdout_path": HOLDOUT_PATH.relative_to(ROOT).as_posix(),
-        "onnx_model_path": ONNX_PATH.relative_to(ROOT).as_posix(),
+        "pipeline_path": PIPELINE_PATH.relative_to(ROOT_DIR).as_posix(),
+        "holdout_path": HOLDOUT_PATH.relative_to(ROOT_DIR).as_posix(),
+        "onnx_model_path": ONNX_PATH.relative_to(ROOT_DIR).as_posix(),
     }
 
     try:

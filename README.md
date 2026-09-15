@@ -1,237 +1,303 @@
-# Credit scoring
+<h1 align="center">Credit scoring</h1>
 
-A model that estimates the probability a loan applicant defaults, served behind an API,
-with the threshold that turns that probability into an accept-or-refuse decision chosen by
-measurement rather than by convention.
+<p align="center">A default-risk model served behind an API, with the accept-or-refuse threshold chosen by measurement</p>
 
-**Project status** — finished, and archived in a runnable state. The hosted Space, the
+<p align="center">
+  <img src="docs/badges/python.svg" alt="Python 3.12">
+  <img src="docs/badges/stack.svg" alt="Built with Evidently · Grafana · LightGBM">
+  <img src="docs/badges/licence.svg" alt="License: MIT">
+  <img src="docs/badges/coverage.svg" alt="coverage 40%">
+</p>
+
+**Project status** — frozen, and still runnable. The hosted Space, the
 managed database and the API keys have been decommissioned; everything below runs locally
-with `docker compose up`, monitoring included. The one thing not shipped is the data: Home
-Credit's terms do not allow redistribution. Continuous integration runs on push and on pull
-requests.
+with `docker compose up`, MLOps stack included: the registry, the metrics, the dashboard and
+the drift watch. The one thing not shipped is the data: Home
+Credit's terms do not allow redistribution. **Ruff** lints, **Bandit** scans and **pytest**
+runs the suite on every push, with **uv** holding the environment to its lock file. No
+workflow trains anything.
 
 ## The problem
 
 A lender approving a loan makes an asymmetric mistake. Refusing a good applicant costs a
-margin. Approving one who defaults costs the principal. Treating the two as equally bad —
-which is exactly what a 0.5 threshold on a probability does — optimises for a cost nobody
-has.
+margin. Approving one who defaults costs the principal. A 0.5 threshold on a probability treats
+the two as equally bad, which optimises for a cost nobody has.
 
 The data is [Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-risk):
-seven relational tables of loan applications and the applicants' credit history, joined
-per customer. 8 % of them default.
+seven relational tables of loan applications and the applicants' credit history, joined per
+customer. 8 % of them default.
 
-So the model is the easy half. The question this repository is built around is **where to
-put the threshold, and what happens to the answer when the assumption underneath it
-moves.**
+So the model is the easy half. The question this repository is built around is **where to put
+the threshold, and what happens to the answer when the assumption underneath it moves.**
 
 ## What it does
 
 An API scores an applicant and returns a probability, a decision at the shipped threshold,
-and the threshold it used.
+and the threshold it used. Both contracts are Pydantic models, which is why the OpenAPI page
+below needs no separate maintenance.
 
-![The API surface at /docs](docs/images/api-docs.png)
+<!-- source: docs/images/MANIFEST.json -->
+![The generated OpenAPI page of the running service, listing the two probe routes and the four that reach the model](docs/images/api-docs.png)
 
-Every prediction is written to PostgreSQL — the payload, the score, the decision, the model
-version, the latency — so the population being served can be compared later against the
-population the model was fit on.
+Every prediction is written to PostgreSQL: the payload, the score, the decision, the model
+version, the latency. [`docs/DB.md`](docs/DB.md) says what that table is for and which of its
+columns are allowed to be empty.
 
-![One applicant scored, through the documentation page](docs/images/api-prediction.png)
+<!-- source: docs/images/MANIFEST.json -->
+![One applicant scored through the documentation page, with the returned probability, the decision and the threshold that produced it](docs/images/api-prediction.png)
 
-A Streamlit interface sits on top of it for people who will not send JSON by hand.
+A **Streamlit** interface sits on top for people who will not send JSON by hand. Its second
+page reads the log back with **Plotly**: what has been decided lately, at what latency, and how
+the threshold split the traffic. [`docs/interface.md`](docs/interface.md) says what both pages
+show, and how to ask the API the same questions from a terminal.
 
-![The scoring page](docs/images/streamlit-scoring.png)
+<!-- source: docs/images/MANIFEST.json -->
+![The scoring page of the interface, with the request body on the left and the returned decision on the right](docs/images/streamlit-scoring.png)
 
-Its second page reads the log back: what has been decided lately, at what latency, and how
-the threshold split the traffic.
+<!-- source: docs/images/MANIFEST.json -->
+![The decision log page: four cards over the last two hundred requests, the table itself, and the distribution of the scores](docs/images/prediction-log.png)
 
-![The prediction log](docs/images/prediction-log.png)
+**Prometheus** scrapes the API and **Grafana** draws it. Both the data source and the
+dashboard are provisioned from `infra/grafana/`, so the dashboard belongs to the repository and
+not to one person's browser. **Evidently** watches the traffic itself, and **Docker** ships all
+of it.
 
-Prometheus scrapes the API and Grafana draws it. Both the data source and the dashboard are
-provisioned from `docker/grafana/`, so the dashboard is part of the repository rather than
-of one person's browser.
-
-![The serving dashboard](docs/images/grafana-dashboard.png)
+<!-- source: docs/images/MANIFEST.json -->
+![The provisioned Grafana dashboard: request rate, latency quantiles, and the share of requests the threshold refused](docs/images/grafana-dashboard.png)
 
 ### How it is built
 
-Ingestion joins the seven tables into one feature set. Training is cross-validated with
-stratified folds, tracked in MLflow, and tuned with Optuna; the selected model is a
-LightGBM. Serving loads a frozen `pipeline.joblib` with its `feature_columns.json` and
-`threshold.json`, so the API depends on artefacts rather than on the training code.
+The model is **LightGBM** on a feature matrix of 796 columns, joined from the seven tables
+with **pandas** and kept as **Parquet**. **scikit-learn** holds the pipeline and
+**imbalanced-learn** its resampling step, **MLflow** tracked the training runs and **Optuna**
+tuned them. **FastAPI** serves the frozen artefact and **Uvicorn** runs it, with **PostgreSQL**
+behind the prediction log and **SQLAlchemy** mapping it. **SHAP** explains one decision, and
+**ONNX** Runtime was measured against the pipeline and left out of it.
 
 Three choices worth defending:
 
-**Preprocessing lives inside the pipeline, not before it.** Imputation and scaling are
-steps of the `Pipeline` fit on the training fold, so nothing about the validation fold
-reaches the transformer. It is the most common leak on this dataset and the reason
-published scores on it are often optimistic.
+**Preprocessing lives inside the pipeline, not before it.** Imputation and scaling are steps
+of the `Pipeline`, fitted inside each fold. `credexp.modeling.pipelines` says what that
+prevents, and it is the reason published scores on this dataset are often optimistic.
 
-**A frozen artefact backs the API, not a registry call.** MLflow tracks the experiments; it
-is not in the serving path. One fewer service to keep alive for a model that is not
-retrained on a schedule.
+**A frozen artefact backs the API, and no registry call.** MLflow tracked the experiments and
+is deliberately absent from the request path; `credexp.serving.model_loader` says what that
+buys and what it costs.
 
-**The artefact carries a manifest.** `model_manifest.json` is written by the final training
-and read by the loader: the feature columns and their schema version, the threshold and how
-it was chosen, the hyper-parameters and the tuning trial they came from, the imbalance
-strategy, a fingerprint of the training data, and the commit. The hyper-parameters used to
-be copied into the training script by hand from a previous Optuna run, which meant the
-final model depended on a result no file connected it to. They are now read from the
-tracked trials, and a missing tuning artefact stops the training instead of letting it
-invent them.
+**The artefact carries a manifest.** `model_manifest.json` is written by the final training and
+read by the loader: the feature columns and their schema version, the threshold and how it was
+chosen, the hyper-parameters and the tuning trial they came from, the imbalance strategy, a
+fingerprint of the training data, and the commit. The hyper-parameters used to be copied into
+the training script by hand, which meant the final model depended on a result no file connected
+it to. They are read from the tracked trials now, and a missing artefact stops the run.
 
 ## The result
 
-The threshold is chosen by minimising an expected cost in which one default costs ten
-times what one wrongly refused applicant costs. **The shipped value is 0.49**, and it
-refuses 27 % of applicants.
+<!-- source: models/threshold.json -->
+The threshold is chosen by minimising an expected cost in which one default costs ten times
+what one wrongly refused applicant costs. **The shipped value is 0.49**, and it refuses 27 % of
+n = 30 751 applicants.
 
-A cost per applicant means nothing without something to compare it to, so the trivial
-policies are in the table:
+A cost per applicant means nothing without something to compare it to, so the trivial policies
+are in the table:
 
-| Policy | Cost per applicant |
-|---|---|
-| refuse everyone | 0.9193 |
-| random at the base rate | 0.8170 |
-| accept everyone | 0.8075 |
-| **the model, at threshold 0.49** | **0.4888** |
+<!-- source: reports/decision/decision_analysis.json -->
+| Policy | n | cost_per_row |
+|---|---|---|
+| refuse everyone | 30 751 | 0.9193 |
+| random at the base rate | 30 751 | 0.8170 |
+| accept everyone | 30 751 | 0.8075 |
+| **the model, at threshold 0.49** | 30 751 | **0.4888** |
 
-With 8 % defaults and a false negative worth ten false positives, refusing everyone is not
-an absurd policy — which is exactly why it belongs there. The model roughly halves the cost
-of the best trivial rule.
+Refusing everyone is a serious policy at this cost ratio, which is exactly why it belongs in
+the table; `credexp.modeling.baselines` says why the three were chosen. The model roughly
+halves the cost of the best of them.
 
-**95 % confidence interval on that cost: 0.4721 – 0.5068**, from 1 000 bootstrap resamples
-of the holdout at a fixed threshold. The threshold is held fixed on purpose: resampling
-*and* re-optimising would mix two sources of variation into an interval nobody could
-interpret.
+<!-- source: reports/decision/decision_analysis.json -->
+**The interval on that cost runs from 0.4721 to 0.5068**, the middle 95 % of n = 1000 bootstrap
+resamples of the holdout. The threshold does not move while the applicants are resampled, and
+`credexp.modeling.sensitivity` says what the alternative would have produced.
+
+### What learning was worth, and what the family was worth
+
+Two questions the cost table above cannot separate: how much of that gain comes from learning
+anything at all, and how much from learning it with trees.
+
+<!-- source: reports/model_comparison.csv -->
+| model | variant | n | roc_auc_mean | pr_auc_mean | business_cost_per_row |
+|---|---|---|---|---|---|
+| dummy | most_frequent | 30 751 | 0.5000 | 0.0807 | 0.8075 |
+| dummy | stratified | 30 751 | 0.5071 | 0.0821 | 0.8050 |
+| lr | | 30 751 | 0.7348 | 0.2238 | 0.5623 |
+| **lgbm** | | 30 751 | **0.7433** | **0.2324** | **0.5472** |
+
+Learning at all is worth 0.24 per applicant. Choosing gradient-boosted trees over a logistic
+regression is worth 0.015, sixteen times less. Notebook 03 reads the same table and says what
+that ratio means for a feature set of 796 engineered columns.
+
+Five-fold cross-validation on the holdout, so the absolute costs sit above the 0.4888 above:
+the frame is a tenth of what the shipped model saw. `uv run python scripts/compare_models.py`
+rebuilds the table, and its header says why that frame.
 
 ### What the whole thing rests on
 
-![Optimal threshold and cost against the assumed cost ratio](reports/decision/cost_sensitivity.png)
+<!-- source: reports/figures/MANIFEST.json -->
+![Optimal threshold and cost per applicant against the assumed cost ratio, over n = 9 ratios from one to fifty, each optimised on the same n = 30751 applicants, with the shipped ratio marked](reports/figures/cost_sensitivity.png)
 
-Ten to one is an assumption. It was not measured, and the optimal threshold runs from
-**0.89** if a default costs the same as a wrongful refusal to **0.18** if it costs fifty
-times as much. The decision sweeps the entire usable range on the strength of that one
-number.
+<!-- source: reports/decision/decision_analysis.json -->
+Ten to one is an assumption. It was not measured, and over the n = 9 ratios swept the optimal
+threshold runs from **0.89** if a default costs the same as a wrongful refusal to **0.18** if it
+costs fifty times as much. The decision sweeps the entire usable range on the strength of that
+one number.
 
-This is the figure to look at before any other. Everything above is conditional on a ratio
-that whoever bears the loss would have to supply, and the honest form of the result is
-"0.4888 per applicant, *given* ten to one" rather than "0.4888 per applicant".
+This is the figure to look at before any other. Everything above is conditional on a ratio that
+whoever bears the loss would have to supply, and the honest form of the result is "0.4888 per
+applicant, *given* ten to one".
 
 ### Who it refuses
 
-| Group | n | Default rate | Refusal rate | Missed defaulters |
+<!-- source: reports/decision/decision_analysis.json -->
+| Group | n | default_rate | refusal_rate | fnr |
 |---|---|---|---|---|
-| under 30 | 4 349 | 0.112 | **0.484** | 0.211 |
-| 30-39 | 8 144 | 0.093 | 0.340 | 0.254 |
-| 40-49 | 7 773 | 0.078 | 0.258 | 0.327 |
-| 50-59 | 6 844 | 0.065 | 0.194 | 0.457 |
-| 60 and over | 3 641 | 0.051 | **0.125** | **0.587** |
-| men | 10 371 | 0.103 | 0.378 | 0.243 |
-| women | 20 380 | 0.069 | 0.232 | 0.386 |
+| under 30 | 4 349 | 0.1122 | **0.4842** | 0.2111 |
+| 30-39 | 8 144 | 0.0933 | 0.3396 | 0.2539 |
+| 40-49 | 7 773 | 0.0783 | 0.2579 | 0.3268 |
+| 50-59 | 6 844 | 0.0646 | 0.1940 | 0.4570 |
+| 60 and over | 3 641 | 0.0505 | **0.1247** | **0.5870** |
+| men | 10 371 | 0.1030 | 0.3781 | 0.2425 |
+| women | 20 380 | 0.0694 | 0.2325 | 0.3859 |
 
-Applicants under thirty are refused **3.9 times** more often than those over sixty. Part of
-that follows real risk — they default at 11.2 % against 5.1 %. Not all of it does, and the
-mirror image is the uncomfortable half: among applicants over sixty the model **misses
-59 % of those who default**. Low refusal and poor detection are the same fact seen twice.
+<!-- source: reports/decision/decision_analysis.json -->
+Over n = 4349 applicants under thirty the refusal rate is **0.4842**; over n = 3641 applicants
+of sixty and over it is **0.1247**. Part of that follows real risk, a default rate of 0.1122
+against 0.0505. Not all of it does, and the mirror image is the uncomfortable half: among
+applicants over sixty the model misses **0.587** of those who default. Low refusal and poor
+detection are the same fact seen twice.
+
+<!-- source: reports/figures/MANIFEST.json -->
+![Refusal rate by age band at the shipped threshold, over n = 30751 applicants, with the population of each band written under its bar](reports/figures/fairness_age.png)
 
 Nothing here is corrected. Adjusting a credit model for fairness commits to a definition of
-fairness, and several reasonable definitions are mutually exclusive — equal refusal rates
-and equal error rates cannot both hold when the base rates differ. That is a decision for
-whoever owns the lending policy, and taking it in passing would be worse than naming it.
+fairness, and several reasonable definitions are mutually exclusive: equal refusal rates and
+equal error rates cannot both hold when the base rates differ. That is a decision for whoever
+owns the lending policy, and taking it in passing would be worse than naming it.
 
-`uv run python scripts/decision_analysis.py` reproduces every number in this section; they
+`uv run python scripts/decision_analysis.py` reproduces every number in this section, and they
 land in `reports/decision/`.
 
 ### What the model is looking at
 
-![SHAP values over 1 500 applicants](reports/explainability/figures/shap_beeswarm.png)
+<!-- source: reports/figures/MANIFEST.json -->
+![SHAP values over n = 1500 applicants, one dot per applicant and per feature, ordered by mean absolute contribution](reports/figures/shap_beeswarm.png)
 
-Three external credit-bureau scores carry most of the decision, and after them come the
-loan's own arithmetic — the annuity, the payment rate, the goods price. That ordering is
-worth having for two reasons.
+Three external credit-bureau scores carry most of the decision, and after them comes the loan's
+own arithmetic: the annuity, the payment rate, the goods price. That ordering is worth having
+for two reasons.
 
-The first is that **no single feature dwarfs the rest**, which is the smell that usually
-means a leak on this dataset. Had one column separated defaulters on its own, it would have
-been a symptom of the outcome rather than a predictor of it.
+The first is that **no single feature dwarfs the rest**, which is the smell that usually means a
+leak on this dataset. Had one column separated defaulters on its own, it would have been a
+symptom of the outcome rather than a predictor of it.
 
-The second is less comfortable: **`CODE_GENDER` is the fourth strongest feature.** The
-refusal gap in the table above is not an accident of correlation, it is something the model
-reads directly. Nothing is corrected, for the reasons given there, but the figure is what
-makes the gap traceable rather than merely reported.
+The second is less comfortable: **`CODE_GENDER` is the fourth strongest feature.** The refusal
+gap in the table above is not an accident of correlation, it is something the model reads
+directly. Nothing is corrected, for the reasons given there, and the figure is what makes the
+gap traceable.
 
 A single applicant decomposes the same way:
 
-![One high-risk applicant, feature by feature](reports/explainability/figures/shap_waterfall_high_risk.png)
+<!-- source: reports/figures/MANIFEST.json -->
+![One applicant of the n = 1500 explained, feature by feature, from the model's average output to this applicant's score](reports/figures/shap_waterfall_high_risk.png)
 
-Against a base log-odds of −0.753, this applicant reaches 2.546 — and 1.51 of that 3.30
-comes from two bureau scores near zero. That is the shape of the explanation a refused
-applicant would be owed.
+<!-- source: reports/explainability/explainability_meta.json -->
+The model's average output is a log-odds of **-0.753**, computed over the n = 5000 background
+sample; the applicant drawn above is the highest-risk of the n = 1500 explained. Two bureau
+scores near zero carry most of the distance between the two. That is the shape of the
+explanation a refused applicant is owed.
 
-`uv run python scripts/explainability.py` regenerates all four figures from the frozen
-artefact.
+`uv run python scripts/explainability.py` regenerates all four figures from the frozen artefact.
 
 ## Why these numbers can be believed
 
-Four things about them were checked rather than asserted, and two of the four came back
-wrong.
+Four things about them were checked rather than asserted, and two of the four came back wrong.
 
-**The threshold used to be chosen on the fold it was then scored on.** Measured on the
-holdout, that shortcut is worth **0.0029 per applicant** — about 0.6 % of the cost. Real,
-small, and free to remove, which is what happened: each fold is now scored with the
-threshold its neighbour chose.
+<!-- source: reports/decision/decision_analysis.json -->
+**The threshold used to be tuned and scored on the same data.** Measured on the two halves of
+the n = 30751 holdout, that shortcut is worth **0.0029** per applicant against a cost near 0.49.
+Real, small, and free to remove. `credexp.modeling.train` holds the rule that replaced it.
 
-**The shipped threshold was calibrated on a model trained on part of the development set
-and then applied to one refit on all of it.** Against this sample's own optimum — 0.48
-rather than 0.49 — the **regret is 0.0028 per applicant**. The compromise survives
-measurement instead of being defended by argument.
+<!-- source: reports/decision/decision_analysis.json -->
+**The shipped threshold was calibrated on a model trained on part of the development set and
+then applied to one refit on all of it.** Against the n = 30751 holdout's own optimum of
+**0.48**, the shipped **0.49** costs **0.0028** more per applicant. The compromise survives
+measurement, which is more than an argument for it would.
 
-**The threshold is a decision, not a coincidence.** Reselected on 25 resamples of half the
-holdout, it lands at a median of 0.50 with a 95 % interval of **[0.47, 0.544]**, and the
-shipped value sits inside it. Worth checking precisely because it could have gone the other
-way: a threshold whose interval spanned 0.3 to 0.7 would be one draw among many presented
-as a decision, and 27 % of applicants are refused at the current one.
+<!-- source: reports/performance/calibration.json -->
+**The threshold is a decision, not a coincidence.** Reselected on n = 25 resamples of half the
+holdout, it lands at a median of 0.50 with a 95 % interval of **[0.47, 0.544]**, and the shipped
+value sits inside it. Worth checking precisely because it could have gone the other way: a
+threshold whose interval spanned 0.3 to 0.7 would be one draw among many presented as a
+decision, and 27 % of applicants are refused at the current one.
 
-**The returned probability is not a probability.** Measured on the 30 751-row holdout:
+**The returned probability is not a probability.** Measured on the n = 30 751 holdout:
 
-| | mean score | Brier | ECE |
-|---|---|---|---|
-| as served | 0.366 | 0.165 | **0.287** |
-| after isotonic recalibration | 0.082 | 0.064 | **0.006** |
-| the true base rate | 0.079 | | |
+<!-- source: reports/performance/calibration.json -->
+| | n | mean_score | brier | ece |
+|---|---|---|---|---|
+| as served | 30 751 | 0.3656 | 0.1650 | **0.2867** |
+| after isotonic recalibration | 30 751 | 0.0815 | 0.0639 | **0.0060** |
+| the true base rate | 30 751 | 0.0788 | | |
 
-The model **overstates default risk by a factor of about 4.6**, across the whole range:
-where it predicts 0.43 the observed rate is 0.070, and where it predicts 0.78 it is 0.311.
-This is not a defect of the model, it is the price of `class_weight="balanced"` —
-reweighting the classes buys ranking quality and destroys the probability scale. ROC AUC
-cannot see it, because multiplying every score by a constant reorders nothing.
+<!-- source: reports/performance/calibration.json -->
+Over the n = 30751 holdout the model overstates default risk across the whole range: a mean
+score of **0.3656** against a base rate of **0.0788**, which is a factor of nearly five. This is the price of
+`class_weight="balanced"` and not a defect: reweighting the classes buys ranking quality and
+destroys the probability scale. ROC AUC cannot see it, because multiplying every score by a
+constant reorders nothing.
 
-![Calibration on the holdout](reports/figures/calibration.png)
+<!-- source: reports/figures/MANIFEST.json -->
+![Observed default rate against predicted probability over n = 30751 applicants in ten equal-population bins, before and after isotonic recalibration, with the diagonal drawn dashed](reports/figures/calibration.png)
 
 Isotonic recalibration, fitted on half the holdout and measured on the other half, removes
 almost all of it. Shipping it properly means fitting the calibrator during training, on the
-validation split, and recording it in the manifest, with the threshold mapped through the
-same monotone function so that no decision changes — isotonic regression cannot reorder a
-pair, only merge two. That needs a training run on the full feature matrix, which is not
-shipped here. **Until then the field to read is `decision`, and `proba_default` is a score
-rather than a probability.** `uv run python scripts/calibration_report.py` reproduces the
-table and the figure.
+validation split, and recording it in the manifest, with the threshold mapped through the same
+monotone function so that no decision changes: isotonic regression cannot reorder a pair, only
+merge two. That needs a training run on the full feature matrix, which is not shipped here.
+**Until then the field to read is `decision`. `proba_default` is a score, and not a
+probability.** `uv run python scripts/calibration_report.py` reproduces the table and the figure.
 
 ### Where a leak would come from, and why there is not one
 
-The per-customer aggregations are the usual risk on this dataset, and they are safe here
-for a specific reason: every one is computed over that customer's own history, keyed on
-`SK_ID_CURR`, from tables that record what happened before the application. No aggregate is
-computed across customers, and none reaches forward in time.
+The per-customer aggregations are the usual risk on this dataset, and they are safe here for a
+reason [`docs/data-source.md`](docs/data-source.md) states in full: each one looks only at the
+applicant's own past. Nothing is aggregated across applicants, and nothing reaches forward in
+time.
 
-Two places would need care if this were extended. **A feature built from an outcome** —
-nothing here touches `TARGET` outside the label itself, but a "number of previous defaults"
-aggregate drawn from the wrong table would, and it would look like an ordinary count. And
-**preprocessing fit outside the fold**, handled by construction above, and worth naming
-because it is the leak that most often survives a review on this dataset.
+Two places would need care if this were extended. **A feature built from an outcome**: nothing
+here touches `TARGET` outside the label itself, but a "number of previous defaults" aggregate
+drawn from the wrong table would, and it would look like an ordinary count. And **preprocessing
+fit outside the fold**, handled by construction above, worth naming because it is the leak that
+most often survives a review here.
 
-The check that would catch a regression is not a test but a smell: one feature whose
+The check that would catch a regression is a smell more than a test: one feature whose
 importance dwarfs every other. None does here.
+
+### What the tests assert
+
+Not that the code runs. That what is published is true:
+
+- the decision tables under `reports/decision/` re-derive from each other: the markdown a
+  reader sees is what the renderer produces from the JSON beside it, byte for byte;
+- the shipped threshold is the same number in `models/threshold.json` and in the analysis;
+- every baseline costs more than the model, and the confidence interval contains its own
+  point estimate;
+- the service answers with no database behind it, which is what « the prediction log is best
+  effort » means when it is true;
+- a request that names two features is scored on all 796, in the fitted order, and a frame
+  whose columns were permuted is refused rather than scored.
+
+191 tests in three tiers, read by `pytest`: unit, integration, and one outer tier that starts
+`uvicorn` in its own process and questions it over HTTP. That tier is what found a service
+taking two minutes to answer when PostgreSQL was unreachable.
 
 ## Running it
 
@@ -242,91 +308,81 @@ docker compose up -d          # API, Streamlit, PostgreSQL, Prometheus, Grafana
 ```
 
 The API answers on `:8000` with its documentation at `/docs`, Streamlit on `:8501`, and the
-provisioned dashboard on `:3000`. Nothing has been scored yet, so the dashboard opens
-empty; give it traffic:
+provisioned dashboard on `:3000`. Nothing has been scored yet, so the dashboard opens empty;
+give it traffic:
 
 ```bash
 uv run python scripts/send_sample_traffic.py --requests 300
 ```
 
-Drift is measured on the **raw API input**, not on the engineered feature space the model
-consumes: the reference is a sample of the population the model was fit on, the current set
-is rebuilt from the logged requests, and the comparison is between what callers send now
-and what they sent then.
+Drift is measured on the **raw API input** and not on the engineered columns.
+`credexp.monitoring.drift` says what that level catches, and
+[`docs/operations.md`](docs/operations.md) says what the two frames are.
 
 ```bash
-uv run python scripts/build_drift_reference.py   # writes data/processed/reference.parquet
+uv run python scripts/build_drift_reference.py   # writes var/data/processed/reference.parquet
 uv run python scripts/monitoring_drift.py        # writes reports/monitoring/
 ```
 
-That is the right level for catching a change in the traffic, and the wrong level for
-catching a change in what an aggregate means. Both matter; only the first is watched here,
-and the report is generated on demand rather than on a schedule — an unattended job nobody
-reads eventually turns red on its own and is then trusted less than no job at all.
+Only the first of the two is watched here, and the report is generated on demand. A scheduled
+job with no one on the other end of it eventually turns red on its own, and is then trusted less
+than no job at all.
 
-![The drift report](docs/images/drift-report.png)
+<!-- source: docs/images/MANIFEST.json -->
+![The Evidently drift report over the reference and the logged traffic, with the share of columns it flags at the top](docs/images/drift-report.png)
 
-The decision analysis needs the holdout, which is **not versioned**. Rebuild it from the
-raw Kaggle tables with `scripts/build_features.py`, then run `scripts/train_final.py` and
+The decision analysis needs the holdout, which is **not versioned**. Rebuild it from the raw
+Kaggle tables with `scripts/build_features.py`, then run `scripts/train_final.py` and
 `scripts/decision_analysis.py`.
 
-Tests: `uv run pytest` — 66 tests, no network. Two skip unless `MODEL_LOAD_MODE` points at
-an artefact, because a test that silently passes without a model is worse than one that
-says it did not run.
+Six documents stand behind this page. [`architecture`](docs/architecture.md) draws the
+boundaries. [`protocol`](docs/protocol.md) measures. [`data-source`](docs/data-source.md) says
+what may be published. [`DB`](docs/DB.md) is the log's schema.
+[`interface`](docs/interface.md) covers both pages and the `curl` calls under them.
+[`operations`](docs/operations.md) is the runbook. The seven notebooks under
+[`notebooks/`](notebooks/) run in the order the work was done: the join, the exploration, the
+family comparison, the tuning study, the explanations, the drift watch, the benchmarks.
 
 ## Structure
 
 ```
-├── artifacts/models/     the frozen serving artefacts: pipeline, columns, threshold, manifest
-├── api_examples/         request bodies that work, for the API tests and for reading
-├── data/                 not versioned; the Kaggle tables and what is derived from them
-├── deploy/huggingface/   the Space packaging, kept although the Space is decommissioned
-├── docker/               one Dockerfile per service, and the Prometheus and Grafana config
-├── notebooks/            ingestion, EDA, training, tuning, explainability, drift
-├── reports/
-│   ├── decision/         the cost table, the bootstrap, the sensitivity curve, the subgroups
-│   ├── explainability/   gain importance, the SHAP beeswarm, two decomposed applicants
-│   ├── figures/          calibration and the training figures
-│   ├── monitoring/       the drift report's metadata; the HTML regenerates on demand
-│   └── performance/      latency, batching and ONNX benchmarks, and an inference profile
-├── scripts/              thin entry points, one per operation
-├── src/credexp/
-│   ├── data/             raw table loading and joins
-│   ├── modeling/         features, training, threshold, decision analysis
-│   ├── serving/          artefact loading and prediction
-│   ├── db/               the prediction log
-│   └── monitoring/       drift, and the Prometheus metrics
-├── streamlit_app/        the scoring page and the prediction log
-└── tests/
+├── models/     the frozen serving artefacts: pipeline, columns, threshold
+├── reports/    every published number and figure, each written by a script
+├── src/        the package: data, modeling, monitoring, serving, app
+├── scripts/    thin entry points that read arguments and call the package
+├── infra/      the images, the compose file, the Grafana and Prometheus provisioning
+├── notebooks/  the work in the order it was done
+├── docs/       five documents and the screenshots
+├── tests/      unit, integration, system
+└── var/        everything a run leaves behind, and the Kaggle download
 ```
-
-Python 3.12 · LightGBM · scikit-learn · imbalanced-learn · Optuna · MLflow · FastAPI ·
-Streamlit · PostgreSQL · Prometheus · Grafana · Evidently · pytest · ruff · bandit · uv ·
-Docker.
 
 ## What this does not prove
 
-**The cost ratio is assumed.** Ten to one is plausible and conventional. It is not
-evidence, and the sensitivity curve above exists because that assumption deserved a figure
-rather than a footnote.
+**The cost ratio is assumed, not measured.** Ten to one came from the domain, not from this
+lender's books. Everything downstream of it moves with it, and the sensitivity figure is how
+much.
 
-**One holdout, drawn once.** The confidence interval covers sampling noise inside that
-holdout, not the variation between different splits. Repeated splits would widen it.
-
-**The drift monitoring demonstrates tooling, not drift.** Home Credit has no usable time
-axis, so what Evidently compares is two samples of the same population. The plumbing is
-real; the phenomenon is not.
+**The probability scale is wrong, and knowingly so.** See above. The decision is not affected;
+any downstream use of `proba_default` as a probability would be.
 
 **The fairness gaps are published and untouched.** See above.
 
-**Only the model is compared against trivial baselines.** A logistic regression and an
-untuned LightGBM would round out the table, and both need retraining on the full feature
-set — outside the "no retraining" boundary this analysis set for itself.
+**The comparison is on the holdout.** The family table is five-fold cross-validation on 30 751
+applicants, a tenth of the development set, because that is the only frame this repository can
+put in front of a reader. The ordering is stable across folds; the absolute costs are not the
+shipped ones.
+
+**No drift has actually been observed.** The traffic the monitor reads is the holdout replayed
+through the API, so the comparison is a sample of the training population against a sample of
+itself. Every part of the mechanism runs; nothing has yet moved under it.
 
 ## Licence and data
 
 Code under [MIT](LICENSE).
 
 The Home Credit Default Risk data is **not redistributed**: it remains subject to the
-competition's terms and must be obtained from Kaggle. Nothing under `data/` is versioned,
-and every figure above reproduces from the scripts once the raw tables are in place.
+competition's terms and must be obtained from Kaggle. Nothing under `var/data/` is versioned,
+and every figure above reproduces from the scripts once the raw tables are in place. The three
+artefacts under `models/` are 4 MB of fitted weights, which are this repository's own work and
+carry no third-party licence.

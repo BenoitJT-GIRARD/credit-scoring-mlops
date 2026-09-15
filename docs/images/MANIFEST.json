@@ -1,0 +1,95 @@
+{
+  "images": {
+    "api-docs.png": {
+      "app_state": "the API serving models/pipeline.joblib, with the compose stack up and the prediction log reachable",
+      "command": "docker compose up -d, then the page in a browser at the address below",
+      "data_source": "none: the page is the OpenAPI schema FastAPI generates from the models",
+      "demonstrates_behaviour": "the six routes the service exposes, and the request and response shapes a caller is validated against",
+      "depends_on": [
+        "src/credexp/serving/api.py",
+        "src/credexp/serving/schemas.py"
+      ],
+      "git_revision": "a46bea34633bd913f9f97e8d488df5266b75c374",
+      "sha256": "7f46f0f673c769918f51ac987b183d011b0917719ae2900c7bf1c9f0666ea575",
+      "source": "taken by the author, from the stack running locally",
+      "url": "http://127.0.0.1:8000/docs",
+      "written": "2026-09-04"
+    },
+    "api-prediction.png": {
+      "app_state": "the same service, after one POST /predict from the documentation page",
+      "command": "docker compose up -d, then the page in a browser at the address below",
+      "data_source": "one applicant typed into the request body, three bureau scores of it",
+      "demonstrates_behaviour": "what a caller receives: the probability, the decision, the threshold that produced it, and the model version",
+      "depends_on": [
+        "src/credexp/serving/api.py",
+        "models/threshold.json"
+      ],
+      "git_revision": "a46bea34633bd913f9f97e8d488df5266b75c374",
+      "sha256": "86de934e0c73e85f9468f7001f65e07c06c0b6f290813f01ca9518982b6204d9",
+      "source": "taken by the author, from the stack running locally",
+      "url": "http://127.0.0.1:8000/docs#/default/predict_predict_post",
+      "written": "2026-09-04"
+    },
+    "drift-report.png": {
+      "app_state": "no service: the report is a file, opened after the run",
+      "command": "docker compose up -d, then the page in a browser at the address below",
+      "data_source": "the reference sample of the training population against the raw payloads of the logged requests",
+      "demonstrates_behaviour": "what Evidently compares and what it flags, on the traffic the replay produced",
+      "depends_on": [
+        "scripts/monitoring_drift.py",
+        "src/credexp/monitoring/drift.py"
+      ],
+      "git_revision": "a46bea34633bd913f9f97e8d488df5266b75c374",
+      "sha256": "a36c4ac1a0bfd2a47a0c254fdd35e243220abc3f986ab71cf51f2f827407f4f7",
+      "source": "taken by the author, from the stack running locally",
+      "url": "file:// the HTML report scripts/monitoring_drift.py writes",
+      "written": "2026-09-04"
+    },
+    "grafana-dashboard.png": {
+      "app_state": "Grafana and Prometheus provisioned from infra/grafana/, scraping the API during the same replay",
+      "command": "docker compose up -d, then the page in a browser at the address below",
+      "data_source": "the Prometheus scrape of /metrics, over the minutes of the replay",
+      "demonstrates_behaviour": "the dashboard is provisioned by the repository: request rate, latency quantiles and the share of requests refused, without a panel built by hand",
+      "depends_on": [
+        "infra/grafana/dashboards/serving.json",
+        "src/credexp/monitoring/serving_metrics.py"
+      ],
+      "git_revision": "a46bea34633bd913f9f97e8d488df5266b75c374",
+      "sha256": "bbd4652797e5b4565fa4fab19f580796bf57627ab1d2a6135c843428c63bcf37",
+      "source": "taken by the author, from the stack running locally",
+      "url": "http://127.0.0.1:3000/d/credexp",
+      "written": "2026-09-04"
+    },
+    "prediction-log.png": {
+      "app_state": "the interface reading PostgreSQL after scripts/send_sample_traffic.py had replayed 300 applicants of the holdout through the API",
+      "command": "docker compose up -d, then the page in a browser at the address below",
+      "data_source": "the prediction log, which is what the service wrote while answering",
+      "demonstrates_behaviour": "what the service has been deciding: the count, the latency, the mean score, and how the threshold split the traffic",
+      "depends_on": [
+        "src/credexp/app/pages/2_Recent_decisions.py",
+        "src/credexp/app/prediction_log.py"
+      ],
+      "git_revision": "a46bea34633bd913f9f97e8d488df5266b75c374",
+      "sha256": "b93561715fbd31a0d61672700e0206b0b6fa01df1ab5037a54047084b58fb574",
+      "source": "taken by the author, from the stack running locally",
+      "url": "http://127.0.0.1:8501/Recent_decisions",
+      "written": "2026-09-04"
+    },
+    "streamlit-scoring.png": {
+      "app_state": "the interface with the API reachable at its default address",
+      "command": "docker compose up -d, then the page in a browser at the address below",
+      "data_source": "the example payload the page opens with",
+      "demonstrates_behaviour": "the same request sent by someone who will not write JSON, and the three metrics the answer is read by",
+      "depends_on": [
+        "src/credexp/app/pages/1_Score_an_applicant.py",
+        "src/credexp/app/service.py"
+      ],
+      "git_revision": "a46bea34633bd913f9f97e8d488df5266b75c374",
+      "sha256": "5bcf5c24676d0616fe6912c379b9fa4e8998472b2d1249716b352b786564df53",
+      "source": "taken by the author, from the stack running locally",
+      "url": "http://127.0.0.1:8501/Score_an_applicant",
+      "written": "2026-09-04"
+    }
+  },
+  "schema": "image-manifest/1"
+}

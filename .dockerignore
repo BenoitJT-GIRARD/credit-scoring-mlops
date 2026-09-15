@@ -8,11 +8,11 @@ __pycache__
 .ipynb_checkpoints
 notebooks
 tests
-data/raw
-data/interim
+var/data/raw
+var/data/interim
 reports
 mlruns
-artifacts/reports
+reports/tuning
 *.pyc
 *.pyo
 *.pyd

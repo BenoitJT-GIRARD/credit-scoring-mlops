@@ -1,0 +1,155 @@
+# The legend of every table this repository publishes.
+#
+# One entry for every numeric column that reaches a page. Read alone, `cost_per_row`, `fnr`
+# and `ece` say nothing about what was counted, over which applicants, or which way is good.
+# The answer is written here once; the README, `docs/protocol.md` and the notebooks point at
+# it instead of each keeping their own.
+#
+# The unit of the cost is the one thing to read first. It is not money. One wrongly refused
+# applicant costs 1, one missed default costs 10, and every cost below is the average of
+# that quantity per applicant scored. The ratio is an assumption, and
+# `reports/figures/cost_sensitivity.png` is what it moves.
+
+metrics:
+
+  cost_per_row:
+    definition: >-
+      The expected cost of the decisions a policy makes, averaged over the applicants it
+      decided on. A wrongly refused applicant costs 1, a missed default costs 10, and a
+      correct decision costs nothing.
+    unit: "cost units per applicant, where one wrongful refusal is 1"
+    direction: lower_is_better
+    anchor: "0.4888 — reports/decision/decision_analysis.json#threshold_shift.shipped_cost"
+    business_reading: >-
+      For every hundred applicants the model decides on, it loses the equivalent of
+      forty-nine wrongful refusals. Refusing everyone would lose ninety-two.
+    source: "scripts/decision_analysis.py, on the 30 751 applicants of the holdout"
+    uncertainty: >-
+      95% percentile interval over 1 000 bootstrap resamples of the holdout, at a fixed
+      threshold: 0.4721 to 0.5068. It covers the sampling of the applicants, not the choice
+      of the threshold and not the cost ratio.
+
+  business_cost_per_row:
+    definition: >-
+      The same cost as `cost_per_row`, measured out of sample under cross-validation: the
+      threshold chosen on fold k is applied to fold k+1, so no fold both picks and scores
+      its own operating point.
+    unit: "cost units per applicant, where one wrongful refusal is 1"
+    direction: lower_is_better
+    anchor: "0.5472 — reports/model_comparison.csv, row lgbm"
+    business_reading: >-
+      What a family of model costs before any threshold has been tuned for it. The gap to
+      the trivial baselines is what learning is worth; the gap between families is what the
+      choice of family is worth.
+    source: "scripts/compare_models.py, five folds of the 30 751-applicant holdout"
+    uncertainty: >-
+      Not published as an interval. The spread across the five folds is in `roc_auc_std`
+      and `pr_auc_std`; the cost itself is a mean over the same folds.
+
+  roc_auc_mean:
+    definition: >-
+      The area under the ROC curve, averaged over the cross-validation folds. The
+      probability that a randomly chosen defaulter is ranked above a randomly chosen
+      non-defaulter.
+    unit: "proportion, 0.5 is chance and 1 is perfect"
+    direction: higher_is_better
+    anchor: "0.7433 — reports/model_comparison.csv, row lgbm"
+    business_reading: >-
+      Given one applicant who will default and one who will not, the model puts them in the
+      right order about three times in four.
+    source: "scripts/compare_models.py, five stratified folds"
+    uncertainty: "`roc_auc_std`, the standard deviation over the five folds."
+
+  pr_auc_mean:
+    definition: >-
+      The average precision, averaged over the cross-validation folds. The area under the
+      precision-recall curve, whose baseline is the default rate rather than 0.5.
+    unit: "proportion, the default rate is chance and 1 is perfect"
+    direction: higher_is_better
+    anchor: "0.2324 — reports/model_comparison.csv, row lgbm"
+    business_reading: >-
+      The metric to read on a population where 8 % default. A model can rank well overall
+      and still be useless at every threshold a lender would accept; this is what says so.
+    source: "scripts/compare_models.py, five stratified folds"
+    uncertainty: "`pr_auc_std`, the standard deviation over the five folds."
+
+  default_rate:
+    definition: "The share of applicants of a group who did default."
+    unit: "proportion, 0 to 1"
+    direction: target
+    anchor: "0.1122 — reports/decision/decision_analysis.json#fairness_age, group <30"
+    business_reading: >-
+      The risk the group actually carries. It is the denominator of any fairness reading:
+      a refusal rate above it can be justified, and one far above it cannot.
+    source: "scripts/decision_analysis.py, on the holdout"
+    uncertainty: >-
+      Not published as an interval. The group sizes are in the table, and the smallest is
+      3 641 applicants.
+
+  refusal_rate:
+    definition: >-
+      The share of applicants of a group the shipped threshold refuses, whatever they would
+      have done.
+    unit: "proportion, 0 to 1"
+    direction: target
+    anchor: "0.4842 — reports/decision/decision_analysis.json#fairness_age, group <30"
+    business_reading: >-
+      Out of a hundred applicants under thirty, forty-eight are refused. Out of a hundred
+      over sixty, twelve are.
+    source: "scripts/decision_analysis.py, at threshold 0.49 on the holdout"
+    uncertainty: "Not published as an interval; the group sizes are in the table."
+
+  fnr:
+    definition: >-
+      The false negative rate: the share of a group's actual defaulters the threshold
+      accepted.
+    unit: "proportion, 0 to 1"
+    direction: lower_is_better
+    anchor: "0.5870 — reports/decision/decision_analysis.json#fairness_age, group 60+"
+    business_reading: >-
+      Among applicants over sixty who went on to default, the model let through fifty-nine
+      in a hundred. Low refusal and poor detection are the same fact seen twice.
+    source: "scripts/decision_analysis.py, at threshold 0.49 on the holdout"
+    uncertainty: >-
+      Not published as an interval, and it rests on the defaulters of each group alone:
+      about 184 applicants in the oldest band.
+
+  mean_score:
+    definition: "The mean of the probabilities the model returns, over the applicants scored."
+    unit: "proportion, 0 to 1"
+    direction: target
+    anchor: "0.3656 — reports/performance/calibration.json#raw.mean_score"
+    business_reading: >-
+      Read against the base rate of 0.0788 on the same applicants. The model says « one in
+      three » where one in thirteen is the truth.
+    source: "scripts/calibration_report.py, on the holdout"
+    uncertainty: "Not published as an interval."
+
+  brier:
+    definition: >-
+      The mean squared difference between the returned probability and the outcome, 0 or 1.
+      A proper scoring rule: it rewards being right and being calibrated at once.
+    unit: "squared probability, 0 to 1"
+    direction: lower_is_better
+    anchor: "0.1650 — reports/performance/calibration.json#raw.brier"
+    business_reading: >-
+      The single number that says whether a probability can be used as a probability. It
+      falls from 0.165 to 0.064 when the scores are recalibrated, and nothing about the
+      ranking changes.
+    source: "scripts/calibration_report.py, on half the holdout held out from the calibrator"
+    uncertainty: "Not published as an interval."
+
+  ece:
+    definition: >-
+      The expected calibration error: the average gap between predicted probability and
+      observed frequency, over ten bins of equal population.
+    unit: "proportion, 0 to 1"
+    direction: lower_is_better
+    anchor: "0.2867 — reports/performance/calibration.json#raw.ece"
+    business_reading: >-
+      Twenty-nine points of gap between what the model promises and what happens. After
+      isotonic recalibration it is half a point.
+    source: "scripts/calibration_report.py, ten equal-population bins on half the holdout"
+    uncertainty: >-
+      Not published as an interval. The binning is equal-population rather than
+      equal-width, so no bin rests on a handful of applicants.

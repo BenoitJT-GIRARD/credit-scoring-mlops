@@ -2,10 +2,10 @@
 
 `get_feature_names` carries the interesting part. `get_feature_names_out` refuses as soon
 as one step of the pipeline lacks it, and the `InfToNan` transformer does -- so every
-published SHAP figure was labelled `Feature 32` instead of naming a column. A plot that
+published SHAP figure was labelled `Feature 32`, naming no column at all. A plot that
 names nothing explains nothing. The fallback is the input column order, which is exact here
 because the steps before the estimator are one-to-one, and it falls through to `None`
-rather than mislabelling when the widths disagree.
+when the widths disagree, which is safer than a wrong label.
 """
 
 from __future__ import annotations
@@ -23,6 +23,11 @@ try:
     import shap
 except Exception as e:
     raise RuntimeError("SHAP is required for explainability. Install with: uv add shap") from e
+
+from credexp.figure_style import PALETTE, apply_style, close, save_figure, sequential_cmap
+from credexp.utils import FIGURES_DIR
+
+SOURCE = "credexp.modeling.explainability"
 
 
 @dataclass(frozen=True)
@@ -69,10 +74,10 @@ def get_feature_names(preprocess: Any, X: pd.DataFrame | None = None) -> np.ndar
     refuses -- which is why every published SHAP figure was labelled "Feature 32" instead
     of naming a column. A plot that names nothing explains nothing.
 
-    The fallback is exact rather than approximate: the steps before the estimator here are
+    The fallback is exact, not approximate: the steps before the estimator here are
     one-to-one on columns, so the input column order *is* the output order. It only applies
     when the transformed width matches the input width, so a step that adds or drops
-    columns falls through to ``None`` rather than mislabelling the plot.
+    columns falls through to ``None``, and the plot says nothing where it knows nothing.
     """
     if hasattr(preprocess, "get_feature_names_out"):
         try:
@@ -124,18 +129,54 @@ def lgbm_gain_importance(model: Any, feature_names: np.ndarray | None) -> pd.Dat
     return df
 
 
+def _name_the_axes(figure: Any, *, x: str, y: str) -> None:
+    """Name the axes SHAP drew the plot on, and leave its colour bar alone.
+
+    SHAP builds its own axes and names at most one of the two. It also adds a colour bar,
+    which is an axes carrying data and no plot: labelling that one writes the x title of
+    the figure across the bottom of the legend.
+    """
+    for axis in figure.axes:
+        if not axis.has_data():
+            continue
+        # A colour bar has neither lines nor scatter points of its own.
+        if not axis.lines and not axis.collections and not axis.patches:
+            continue
+        if not axis.get_xlabel().strip():
+            axis.set_xlabel(x)
+        if not axis.get_ylabel().strip():
+            axis.set_ylabel(y)
+        return
+
+
 def plot_feature_importance(df_imp: pd.DataFrame, topn: int, outpath: Path) -> None:
-    outpath.parent.mkdir(parents=True, exist_ok=True)
+    """Total gain per feature, which is what the booster split on and not what it is worth.
 
-    df_top = df_imp.head(topn).iloc[::-1]  # reverse for horizontal bar plot
+    Gain answers « how much did the loss drop when this column was used ». It is a property
+    of the fitted trees, so a column correlated with a better one can show almost none of
+    it while carrying the same information. The SHAP figures beside this one answer the
+    other question, on the applicants themselves.
+    """
+    apply_style()
+    df_top = df_imp.head(topn).iloc[::-1]
 
-    plt.figure(figsize=(10, 8))
-    plt.barh(df_top["feature"], df_top["gain"])
-    plt.title(f"LightGBM Feature Importance (gain) — Top {topn}")
-    plt.xlabel("gain")
-    plt.tight_layout()
-    plt.savefig(outpath, dpi=160)
-    plt.close()
+    figure, axis = plt.subplots(figsize=(9, 8))
+    axis.barh(df_top["feature"], df_top["gain"], color=PALETTE["primary"])
+    axis.set_title(f"Total gain per feature, top {topn}")
+    axis.set_xlabel("Total gain over every split that used the feature")
+    axis.set_ylabel("Feature")
+    axis.tick_params(axis="y", labelsize=7)
+    figure.tight_layout()
+    figure.subplots_adjust(bottom=figure.subplotpars.bottom + 0.05)
+
+    save_figure(
+        figure,
+        outpath,
+        n={"features shown": len(df_top), "features fitted": len(df_imp)},
+        source=SOURCE,
+        note="gain is a property of the fitted trees, not of the applicants",
+    )
+    close(figure)
 
 
 def compute_shap_tree(model: Any, X_background: np.ndarray, X_explain: np.ndarray):
@@ -180,17 +221,37 @@ def plot_shap_beeswarm(
 ) -> None:
     outpath.parent.mkdir(parents=True, exist_ok=True)
 
-    plt.figure(figsize=(10, 7))
+    apply_style()
+    figure = plt.figure(figsize=(10, 7))
     shap.summary_plot(
         shap_values,
         X_explain,
         feature_names=feature_names,
         show=False,
         max_display=max_display,
+        # The colour is the feature's own value, low to high: a sequential scale, and the
+        # figures', in place of the library's red-to-blue.
+        cmap=sequential_cmap(),
     )
-    plt.tight_layout()
-    plt.savefig(outpath, dpi=160, bbox_inches="tight")
-    plt.close()
+    # SHAP draws the figure, its colour bar and sometimes a second axes, and it names only
+    # the horizontal one. The writer asks every axes holding data what it measures, so the
+    # missing names are filled in here, so no reader has to infer one.
+    _name_the_axes(
+        figure,
+        x="SHAP value: contribution to the log-odds of default",
+        y="Feature, ordered by mean absolute contribution",
+    )
+    plt.gca().set_title("How each feature moved each applicant's score")
+    figure.tight_layout()
+
+    save_figure(
+        figure,
+        outpath,
+        n={"applicants": int(len(X_explain)), "features shown": max_display},
+        source=SOURCE,
+        note="one dot per applicant and per feature; colour is the feature's own value",
+    )
+    close(figure)
 
 
 def plot_shap_waterfall(
@@ -211,11 +272,29 @@ def plot_shap_waterfall(
         feature_names=feature_names,
     )
 
-    plt.figure(figsize=(10, 6))
+    apply_style()
+    figure = plt.figure(figsize=(10, 6))
     shap.plots.waterfall(exp, max_display=max_display, show=False)
-    plt.tight_layout()
-    plt.savefig(outpath, dpi=160, bbox_inches="tight")
-    plt.close()
+    _name_the_axes(
+        figure,
+        x="Contribution to the log-odds of default",
+        y="Feature, and this applicant's value for it",
+    )
+    # SHAP writes the model's average output under the axis, where an x title lands by
+    # default. The pad moves the title below that annotation.
+    for axis in figure.axes:
+        if axis.get_xlabel():
+            axis.xaxis.labelpad = 22
+    figure.tight_layout()
+
+    save_figure(
+        figure,
+        outpath,
+        n={"applicants": 1, "features shown": max_display},
+        source=SOURCE,
+        note="one applicant, from the model's average output to this applicant's score",
+    )
+    close(figure)
 
 
 def pick_examples_by_pred_proba(
@@ -239,7 +318,9 @@ def run_explainability(
     max_display_shap: int = 30,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
-    fig_dir = out_dir / "figures"
+    # The figures go where every published figure of this repository goes, so that one
+    # manifest describes them all and a reader looking for a picture has one place to look.
+    fig_dir = FIGURES_DIR
     fig_dir.mkdir(parents=True, exist_ok=True)
 
     preprocess, model = unpack_pipeline(pipeline)

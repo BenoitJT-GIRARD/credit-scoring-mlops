@@ -13,8 +13,8 @@ import time
 import joblib
 import pandas as pd
 
-from credexp.config import settings
 from credexp.data.io import processed_dir
+from credexp.utils import PIPELINE_PATH
 
 
 def load_data():
@@ -26,7 +26,7 @@ def load_data():
 
 
 def main() -> None:
-    pipe = joblib.load(settings.artifacts_dir / "models" / "pipeline.joblib")
+    pipe = joblib.load(PIPELINE_PATH)
     df = load_data()
 
     single = df.head(1).copy()

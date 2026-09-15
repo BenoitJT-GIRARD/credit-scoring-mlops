@@ -19,12 +19,11 @@ from credexp.modeling.explainability import (
     run_explainability,
     split_X_y_from_features,
 )
-
-ROOT = Path(__file__).resolve().parents[1]
+from credexp.utils import EXPLAINABILITY_DIR, MLFLOW_DB_PATH, PIPELINE_PATH
 
 
 def load_from_artifact() -> tuple[object, str]:
-    path = settings.artifacts_dir / "models" / "pipeline.joblib"
+    path = PIPELINE_PATH
     if not path.exists():
         raise SystemExit(f"{path} is missing; run scripts/train_final.py first.")
     return joblib.load(path), "local-joblib"
@@ -34,7 +33,7 @@ def load_from_registry(model_name: str) -> tuple[object, str]:
     import mlflow
     from mlflow.tracking import MlflowClient
 
-    db_path = (ROOT / "mlflow" / "mlflow.db").resolve()
+    db_path = MLFLOW_DB_PATH.resolve()
     tracking_uri = f"sqlite:///{db_path.as_posix()}"
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_registry_uri(tracking_uri)
@@ -74,7 +73,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--from-registry", action="store_true")
     parser.add_argument("--model-name", default="credit_scoring_model")
     parser.add_argument("--features", type=Path, default=None)
-    parser.add_argument("--out-dir", type=Path, default=ROOT / "reports" / "explainability")
+    parser.add_argument("--out-dir", type=Path, default=EXPLAINABILITY_DIR)
     parser.add_argument("--n-background", type=int, default=5000)
     parser.add_argument("--n-sample", type=int, default=1500)
     parser.add_argument("--random-state", type=int, default=42)

@@ -1,83 +1,56 @@
-"""Shared doubles for the serving tests.
+"""What every tier of this suite shares: where the repository is, and how a test is skipped.
 
-A fake bundle rather than a real model, so the API's contract can be asserted at all. With
-a real model the tests can only ask for "200 or 503", which is what they used to do — an
-assertion that holds whether the service works or not.
+The suite is read by tier — ``unit/``, ``integration/``, ``system/`` — and each tier states
+in its own ``conftest.py`` what it forbids. This file holds only what all three need.
+
+**A skip names the command that would run the test.** A skip whose reason is a condition —
+``"needs the database"``, ``"no model on disk"`` — teaches a reader that the test is
+unrunnable. A skip that says ``run: docker compose up -d postgres`` teaches them how to run
+it. Use :func:`skip_unless` and the message writes itself.
 """
 
 from __future__ import annotations
 
-import numpy as np
+import os
+import socket
+from pathlib import Path
+
 import pytest
-from fastapi.testclient import TestClient
 
-from credexp.serving import api as api_module
-from credexp.serving.api import app
+from credexp.utils.paths import ROOT_DIR as ROOT
 
-FEATURES = ["EXT_SOURCE_1", "EXT_SOURCE_2", "AMT_CREDIT"]
-THRESHOLD = 0.42
+# The root is NOT recomputed here: the import above takes it from the package, which already
+# decides where the repository is. A second answer to that question is a second answer.
 
 
-class FakePipeline:
-    """Scores a row by its first feature, so a test can choose the outcome it wants.
+def skip_unless(condition: bool, *, command: str) -> pytest.MarkDecorator:
+    """Skip the test unless the condition holds, naming the command that makes it hold.
 
-    ``calls`` records the size of each ``predict_proba`` call, which is how the batch
-    endpoint's whole point gets asserted: one call of five, not five calls of one.
+    @skip_unless(port_is_open(5432), command="docker compose up -d postgres")
+    def test_the_api_writes_its_prediction_to_the_database(): ...
     """
-
-    def __init__(self) -> None:
-        self.calls: list[int] = []
-
-    def predict_proba(self, frame):
-        self.calls.append(len(frame))
-        first = frame[FEATURES[0]].astype(float).fillna(0.0).to_numpy()
-        positive = np.clip(first, 0.0, 1.0)
-        return np.column_stack([1.0 - positive, positive])
+    return pytest.mark.skipif(not condition, reason=f"run: {command}")
 
 
-class FailingPipeline:
-    """Raises, so the failure path can be exercised without breaking a real model."""
-
-    def predict_proba(self, frame):
-        raise RuntimeError("the pipeline exploded")
-
-
-def make_bundle(pipe) -> api_module.ModelBundle:
-    return api_module.ModelBundle(
-        pipe=pipe,
-        threshold=THRESHOLD,
-        model_name="credit_scoring_model",
-        model_version="test",
-        feature_columns=FEATURES,
-    )
+def port_is_open(port: int, host: str = "127.0.0.1", timeout: float = 0.25) -> bool:
+    """Is something listening? Asked once at collection, never retried in a loop."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
 
 
-def payload(value: float, sk_id: int | None = 1) -> dict:
-    return {"sk_id_curr": sk_id, "features": {FEATURES[0]: value, FEATURES[1]: 0.1}}
+def env_is_set(name: str) -> bool:
+    """Is this environment variable set to something?
 
-
-@pytest.fixture()
-def loaded(monkeypatch):
-    """A bundle that is always present, and a database that is never touched.
-
-    Returns ``(client, pipe, logged)`` — the last being every call the logging path would
-    have made, so the tests can assert on it without a database.
+    A test gated on a variable that no workflow and no documented command ever sets skips on
+    every checkout, and the count of tests it belongs to is a count of tests nobody runs.
     """
-    pipe = FakePipeline()
-    monkeypatch.setattr(api_module, "BUNDLE", make_bundle(pipe))
-    logged: list[dict] = []
-    monkeypatch.setattr(
-        api_module, "_log_prediction_best_effort", lambda **kwargs: logged.append(kwargs)
-    )
-    return TestClient(app), pipe, logged
+    return bool(os.environ.get(name))
 
 
-@pytest.fixture()
-def failing(monkeypatch):
-    """A bundle whose pipeline raises. Returns ``(client, logged)``."""
-    monkeypatch.setattr(api_module, "BUNDLE", make_bundle(FailingPipeline()))
-    logged: list[dict] = []
-    monkeypatch.setattr(
-        api_module, "_log_prediction_best_effort", lambda **kwargs: logged.append(kwargs)
-    )
-    return TestClient(app, raise_server_exceptions=False), logged
+@pytest.fixture(scope="session")
+def root() -> Path:
+    """The repository root, for a test that must open a published artefact."""
+    return ROOT

@@ -7,25 +7,25 @@ from typing import Any
 
 import pandas as pd
 
-from credexp.config import DATA_DIR
+from credexp.utils import INTERIM_DIR, PROCESSED_DIR, RAW_DIR
 from credexp.utils.logging import get_logger
 
 log = get_logger(__name__)
 
 
 def raw_dir() -> Path:
-    """Raw input data (Kaggle CSVs) - NOT tracked in git."""
-    return DATA_DIR / "raw"
+    """The Kaggle CSVs, as downloaded. Nothing here is redistributable, so nothing is tracked."""
+    return RAW_DIR
 
 
 def interim_dir() -> Path:
-    """Intermediate datasets (after merges / partial processing) - NOT tracked in git."""
-    return DATA_DIR / "interim"
+    """The merged tables, between the raw CSVs and the feature frame."""
+    return INTERIM_DIR
 
 
 def processed_dir() -> Path:
-    """Processed datasets (features.parquet, holdout samples) - NOT tracked in git."""
-    return DATA_DIR / "processed"
+    """The feature frame and the two holdouts the published numbers are computed on."""
+    return PROCESSED_DIR
 
 
 def ensure_dir(path: Path) -> None:

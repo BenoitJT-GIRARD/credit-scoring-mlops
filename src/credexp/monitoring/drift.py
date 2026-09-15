@@ -1,8 +1,8 @@
 """Comparing what callers send now against the population the model was fit on.
 
-Measured on the **raw API input**, not on the engineered feature space. That is the right
-level for catching a change in the traffic and the wrong level for catching a change in
-what an aggregate means; only the first is watched here.
+The comparison runs on the payloads callers send, and on nothing derived from them. A change
+in who is applying shows up; a change in what one of the 796 aggregates means does not, and
+only the first of the two is watched here.
 
 `align_reference_and_current` keeps the intersection of the columns, because a caller sends
 what it has and the reference has everything.
@@ -112,14 +112,19 @@ def infer_data_definition(reference_df: pd.DataFrame) -> DataDefinition:
     """Minimal type definition for Evidently.
 
     Object, category and bool columns are treated as categorical, everything else as
-    numerical.
+    numerical. The boolean case is stated before the numeric one on purpose: pandas reads
+    `bool` as a numeric dtype, so a flag would otherwise be handed to a distance test
+    between distributions instead of to a test on two proportions, which is what a column
+    holding only 0 and 1 deserves.
     """
     numerical_columns = []
     categorical_columns = []
 
     for col in reference_df.columns:
         dtype = reference_df[col].dtype
-        if pd.api.types.is_numeric_dtype(dtype):
+        if pd.api.types.is_bool_dtype(dtype):
+            categorical_columns.append(col)
+        elif pd.api.types.is_numeric_dtype(dtype):
             numerical_columns.append(col)
         else:
             categorical_columns.append(col)

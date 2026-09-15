@@ -5,7 +5,7 @@ codes. Those describe the HTTP layer and say nothing about what the model is doi
 service can be perfectly healthy by every one of them while scoring everyone as a default.
 
 Four, and not thirty. Each answers a question someone would actually ask during an
-incident, and a dashboard nobody reads is maintenance debt rather than observability.
+incident, and a dashboard no one opens is maintenance debt wearing the word observability.
 
 The failure counter shares its label vocabulary with the structured log and the database
 column, so one incident can be followed from a Prometheus spike to the rows that caused it.
@@ -32,8 +32,8 @@ PREDICTIONS_TOTAL = Counter(
     labelnames=("model_version", "endpoint"),
 )
 
-#: The distribution of the default probability. A model whose scores all drift towards one
-#: end is the earliest warning available, and it arrives long before any label does.
+#: The distribution of the default probability. A bump that grows at one end of it is
+#: visible months before the first outcome of those applications is known.
 DEFAULT_PROBABILITY = Histogram(
     "credexp_default_probability",
     "Distribution of the predicted probability of default.",
@@ -48,7 +48,7 @@ THRESHOLD_CROSSINGS_TOTAL = Counter(
     labelnames=("decision",),
 )
 
-#: Failures by kind, using the same closed vocabulary as the log and the database.
+#: Failures by kind, using one vocabulary of failure kinds, shared with the log and the table.
 PREDICTION_FAILURES_TOTAL = Counter(
     "credexp_prediction_failures_total",
     "Requests that produced no score, by failure kind.",

@@ -1,0 +1,5 @@
+model,variant,n_applicants,n_splits,roc_auc_mean,roc_auc_std,pr_auc_mean,pr_auc_std,best_threshold_mean,business_cost_per_row,seconds,note
+dummy,most_frequent,30751,5,0.5,0.0,0.0807,0.0001,0.01,0.8075,11.4,"refuses nobody: the majority class, every time"
+dummy,stratified,30751,5,0.5071,0.0054,0.0821,0.0011,0.01,0.805,11.4,a coin weighted by the base rate
+lr,,30751,5,0.7348,0.0118,0.2238,0.0158,0.516,0.5623,24.1,"logistic regression, balanced class weights, scaled features"
+lgbm,,30751,5,0.7433,0.0105,0.2324,0.008,0.034,0.5472,87.8,"gradient-boosted trees, balanced class weights — the shipped family"

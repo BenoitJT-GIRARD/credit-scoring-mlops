@@ -18,12 +18,12 @@ from pathlib import Path
 import httpx
 import pandas as pd
 
-from credexp.config import DATA_DIR
+from credexp.utils import HOLDOUT_PATH
 from credexp.utils.logging import get_logger
 
 log = get_logger(__name__)
 
-HOLDOUT = DATA_DIR / "processed" / "api_holdout.parquet"
+HOLDOUT = HOLDOUT_PATH
 
 #: What a caller plausibly holds at application time: the three credit-bureau scores, the
 #: amounts, and a few demographics. Anything left out is imputed by the pipeline, so this

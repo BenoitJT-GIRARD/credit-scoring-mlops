@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 from pathlib import Path
 
@@ -9,18 +10,21 @@ import joblib
 import matplotlib
 import pandas as pd
 
-from credexp.config import ARTIFACTS_DIR, DATA_DIR
+from credexp.figure_style import PALETTE, apply_style, close, reference_line, save_figure
 from credexp.modeling.baselines import trivial_baselines
 from credexp.modeling.fairness import age_bands, group_report
 from credexp.modeling.sensitivity import bootstrap_cost_ci, cost_ratio_sweep
 from credexp.modeling.threshold import split_threshold_cost, threshold_shift
+from credexp.utils import DECISION_DIR, FIGURES_DIR, HOLDOUT_PATH, MODELS_DIR
+
+SOURCE = "credexp.modeling.decision_report"
 
 matplotlib.use("Agg")  # no display on CI or on a headless machine
 import matplotlib.pyplot as plt  # noqa: E402
 
-HOLDOUT = DATA_DIR / "processed" / "api_holdout.parquet"
-MODELS = ARTIFACTS_DIR / "models"
-OUT_DIR = Path("reports/decision")
+HOLDOUT = HOLDOUT_PATH
+MODELS = MODELS_DIR
+OUT_DIR = DECISION_DIR
 
 # CODE_GENDER is label-encoded by the feature pipeline, so the holdout carries 0 and 1.
 # The mapping was verified by joining the holdout to application_train.csv on SK_ID_CURR:
@@ -42,36 +46,82 @@ def _load():
     return df, pipe, threshold
 
 
-def _plot_sensitivity(sweep: list[dict], operating_ratio: float, path: Path) -> None:
+def _plot_sensitivity(
+    sweep: list[dict], operating_ratio: float, n_holdout: int, path: Path
+) -> None:
+    """The threshold and the cost, against the ratio the whole decision rests on.
+
+    Two axes on one figure, which is a choice worth stating: the reader has to see that the
+    threshold moves smoothly while the cost has a floor, and the two are in different units.
+    The vertical line is where this repository operates.
+    """
+    apply_style()
     ratios = [r["ratio"] for r in sweep]
-    fig, ax1 = plt.subplots(figsize=(7, 4))
-    ax1.plot(ratios, [r["threshold"] for r in sweep], marker="o", color="#2c6e9b")
+    fig, ax1 = plt.subplots()
+    ax1.plot(ratios, [r["threshold"] for r in sweep], marker="o", color=PALETTE["primary"])
     ax1.set_xlabel("Cost of a false negative, relative to a false positive")
-    ax1.set_ylabel("Optimal threshold", color="#2c6e9b")
+    ax1.set_ylabel("Optimal threshold", color=PALETTE["primary"])
     ax2 = ax1.twinx()
-    ax2.plot(ratios, [r["cost_per_row"] for r in sweep], marker="s", color="#b8563e")
-    ax2.set_ylabel("Cost per applicant", color="#b8563e")
-    ax1.axvline(operating_ratio, linestyle="--", color="#8c959f")
+    ax2.plot(ratios, [r["cost_per_row"] for r in sweep], marker="s", color=PALETTE["secondary"])
+    ax2.set_ylabel("Cost per applicant", color=PALETTE["secondary"])
+    # The twin shares the x axis and draws none of its own, and the writer asks every axes
+    # carrying data what it measures. Answering twice is cheaper than an unlabelled figure.
+    ax2.set_xlabel(ax1.get_xlabel())
+    reference_line(ax1, x=operating_ratio, label=f"shipped ratio {operating_ratio:g}")
     ax1.set_title("The decision rests on an assumed ratio")
+    ax1.legend(loc="lower right", frameon=False, fontsize=8)
     fig.tight_layout()
-    fig.savefig(path, dpi=140)
-    plt.close(fig)
+    fig.subplots_adjust(bottom=fig.subplotpars.bottom + 0.08)
+
+    save_figure(
+        fig,
+        path,
+        n={"applicants": n_holdout, "ratios": len(sweep)},
+        source=SOURCE,
+        note="one threshold optimised per ratio, on the same holdout",
+    )
+    close(fig)
 
 
-def _plot_fairness(rows: list[dict], title: str, path: Path) -> None:
-    fig, ax = plt.subplots(figsize=(7, 3.6))
-    ax.bar([r["group"] for r in rows], [r["refusal_rate"] or 0.0 for r in rows], color="#2c6e9b")
+def _plot_fairness(rows: list[dict], title: str, n_holdout: int, path: Path) -> None:
+    """Refusal rate per group, with the population of each written under its bar.
+
+    A rate without its group size is a bar a reader cannot weigh, and these groups differ
+    by a factor of five.
+    """
+    apply_style()
+    fig, ax = plt.subplots()
+    labels = [f"{r['group']}\nn = {r['n']}" for r in rows]
+    ax.bar(labels, [r["refusal_rate"] or 0.0 for r in rows], color=PALETTE["primary"], width=0.6)
+    ax.set_xlabel("Group, and how many applicants it holds")
     ax.set_ylabel("Refusal rate at the shipped threshold")
     ax.set_title(title)
+    ax.tick_params(axis="x", labelsize=8)
     fig.tight_layout()
-    fig.savefig(path, dpi=140)
-    plt.close(fig)
+    fig.subplots_adjust(bottom=fig.subplotpars.bottom + 0.08)
+
+    save_figure(
+        fig,
+        path,
+        n={"applicants": n_holdout, "groups": len(rows)},
+        source=SOURCE,
+        note="the same threshold applied to every group",
+    )
+    close(fig)
 
 
 def render_summary(payload: dict) -> str:
+    """The published markdown, rendered from the payload beside it and from nothing else.
+
+    The header names the script and the day, because a generated document that does not say
+    so is a document someone will eventually edit by hand.
+    """
     ci = payload["cost_interval"]
     shift = payload["threshold_shift"]
     lines = [
+        f"<!-- Written by scripts/decision_analysis.py on {payload['written']}. "
+        "Edits here are overwritten. -->",
+        "",
         "| Question | Answer |",
         "|---|---|",
         f"| Cost per applicant at the shipped threshold | {shift['shipped_cost']:.4f} "
@@ -108,6 +158,7 @@ def run_decision_analysis() -> dict:
 
     sweep = cost_ratio_sweep(y, proba)
     payload = {
+        "written": dt.date.today().isoformat(),
         "n_holdout": int(len(y)),
         "default_rate": float(y.mean()),
         "shipped_threshold": threshold,
@@ -134,7 +185,18 @@ def run_decision_analysis() -> dict:
     (OUT_DIR / "decision_analysis.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    _plot_sensitivity(sweep, cost_fn / cost_fp, OUT_DIR / "cost_sensitivity.png")
-    _plot_fairness(payload["fairness_age"], "Refusal rate by age band", OUT_DIR / "fairness.png")
+    _plot_sensitivity(sweep, cost_fn / cost_fp, len(y), FIGURES_DIR / "cost_sensitivity.png")
+    _plot_fairness(
+        payload["fairness_age"],
+        "Refusal rate by age band",
+        len(y),
+        FIGURES_DIR / "fairness_age.png",
+    )
+    _plot_fairness(
+        payload["fairness_gender"],
+        "Refusal rate by sex",
+        len(y),
+        FIGURES_DIR / "fairness_gender.png",
+    )
     (OUT_DIR / "decision_summary.md").write_text(render_summary(payload), encoding="utf-8")
     return payload

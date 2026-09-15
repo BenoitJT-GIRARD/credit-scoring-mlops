@@ -1,8 +1,8 @@
 """Paths, MLflow locations and the environment overrides, in one settings object.
 
-MLflow lives under `mlflow/` as a SQLite backend rather than a filesystem store: the
-filesystem backend is deprecated, and a registry that cannot answer a version query is a
-registry the training cannot read its own hyper-parameters back out of.
+MLflow keeps its store under `var/mlflow/`, on SQLite and not on the filesystem backend:
+that backend is deprecated, and a registry that cannot answer a version query is one the
+training cannot read its own hyper-parameters back out of.
 """
 
 from __future__ import annotations
@@ -13,14 +13,23 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from credexp.utils.paths import (
+    DATA_ROOT,
+    MLFLOW_ARTIFACT_ROOT,
+    MLFLOW_DB_PATH,
+    MLFLOW_DIR,
+    MODELS_DIR,
+    PROCESSED_DIR,
+    ROOT_DIR,
+)
+
 load_dotenv()
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = PROJECT_ROOT / "data"
-ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
-MLFLOW_DIR = PROJECT_ROOT / "mlflow"
-MLFLOW_DB_PATH = MLFLOW_DIR / "mlflow.db"
-MLFLOW_ARTIFACT_ROOT = MLFLOW_DIR / "artifacts"
+#: Kept under this module's names because the settings object publishes them. The values
+#: come from `credexp.utils.paths`, which is the only module in the project that resolves a
+#: path; nothing here computes one.
+PROJECT_ROOT = ROOT_DIR
+DATA_DIR = DATA_ROOT
 
 
 def _default_tracking_uri() -> str:
@@ -46,7 +55,7 @@ class Settings:
     # Paths
     project_root: Path = PROJECT_ROOT
     data_dir: Path = DATA_DIR
-    artifacts_dir: Path = ARTIFACTS_DIR
+    models_dir: Path = MODELS_DIR
     mlflow_dir: Path = MLFLOW_DIR
 
     # MLflow
@@ -84,7 +93,7 @@ class Settings:
     # Monitoring
     evidently_reference_path: str = os.getenv(
         "EVIDENTLY_REFERENCE_PATH",
-        str(DATA_DIR / "processed" / "reference.parquet"),
+        str(PROCESSED_DIR / "reference.parquet"),
     )
     prometheus_enabled: bool = os.getenv("PROMETHEUS_ENABLED", "true").lower() == "true"
 

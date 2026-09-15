@@ -1,6 +1,6 @@
 """Write the reference sample the drift report compares live traffic against.
 
-`monitoring_drift.py` reads `data/processed/reference.parquet` and nothing in this
+`monitoring_drift.py` reads `var/data/processed/reference.parquet` and nothing in this
 repository used to write it: the file had been produced by hand in a notebook, so the
 drift report was reproducible only on the machine that happened to still have it.
 
@@ -16,18 +16,18 @@ from pathlib import Path
 
 import pandas as pd
 
-from credexp.config import DATA_DIR
+from credexp.utils import DRIFT_REFERENCE_PATH, HOLDOUT_PATH, PROCESSED_DIR
 from credexp.utils.logging import get_logger
 
 log = get_logger(__name__)
 
 #: The engineered training matrix, when it has been rebuilt from the raw Kaggle tables.
-FEATURES = DATA_DIR / "processed" / "features.parquet"
+FEATURES = PROCESSED_DIR / "features.parquet"
 #: The scoring holdout, kept as a fallback so the drift pipeline can be exercised without
 #: rebuilding the full feature set. Reference and current then come from the same
 #: population, and the report shows tooling rather than drift.
-HOLDOUT = DATA_DIR / "processed" / "api_holdout.parquet"
-DEFAULT_OUTPUT = DATA_DIR / "processed" / "reference.parquet"
+HOLDOUT = HOLDOUT_PATH
+DEFAULT_OUTPUT = DRIFT_REFERENCE_PATH
 
 
 def parse_args() -> argparse.Namespace:

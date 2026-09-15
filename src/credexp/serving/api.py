@@ -23,10 +23,9 @@ from fastapi import FastAPI, HTTPException, Request, status
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from credexp.config import settings
-from credexp.db.crud import build_prediction_log
 from credexp.db.init_db import init_db
-from credexp.db.session import SessionLocal
 from credexp.monitoring.serving_metrics import observe_failure, observe_prediction
+from credexp.serving.audit_log import log_prediction_best_effort
 from credexp.serving.failures import FailureKind
 from credexp.serving.model_loader import ModelBundle, load_model_bundle
 from credexp.serving.schemas import (
@@ -40,6 +39,47 @@ from credexp.serving.schemas import (
 from credexp.utils.logging import get_logger
 
 log = get_logger(__name__)
+
+#: The database write lives in `credexp.serving.audit_log`. It keeps its old name here
+#: because a route calling `_log_prediction_best_effort` reads as one thing whatever module
+#: holds it, and because the tests replace it by that name.
+_log_prediction_best_effort = log_prediction_best_effort
+
+
+def _log_failure(
+    *,
+    bundle: ModelBundle | None,
+    request_id: str,
+    req: PredictRequest,
+    kind: FailureKind,
+    status_code: int,
+    exc: Exception,
+    latency_ms: float,
+) -> None:
+    """Record a request that produced no score, in three places at once.
+
+    The service's log gets the traceback, the Prometheus counter gets the kind, and the
+    database gets a row with a null score. The three are written together because a failure
+    counted and not stored, or stored and not counted, is a failure only half visible.
+    """
+    log.exception(
+        str(kind),
+        extra={"request_id": request_id, "failure_kind": str(kind), "error": repr(exc)},
+    )
+    observe_failure(failure_kind=str(kind))
+    _log_prediction_best_effort(
+        bundle=bundle,
+        request_id=request_id,
+        req=req,
+        response_payload={},
+        proba=None,
+        decision=None,
+        latency_ms=latency_ms,
+        status_code=status_code,
+        failure_kind=kind,
+        error_message=repr(exc)[:1000],
+    )
+
 
 BUNDLE: ModelBundle | None = None
 
@@ -89,7 +129,7 @@ app = FastAPI(
         "in which one default is worth ten wrongful refusals.\n\n"
         "Every scored request is written to PostgreSQL with the score, the decision, the "
         "threshold and the model version that produced it.\n\n"
-        "`proba_default` is a ranking score rather than a calibrated probability: the "
+        "`proba_default` is a ranking score and not a calibrated probability: the "
         "model is fit with balanced class weights and overstates risk by roughly a factor "
         "of four. Read `decision`."
     ),
@@ -171,92 +211,11 @@ def _score_frame(bundle: ModelBundle, frame: pd.DataFrame) -> np.ndarray:
     """Probability of default for every row, in one call.
 
     The only place the pipeline is invoked. It knows nothing about HTTP, which is what
-    lets a batch of a hundred cost one call instead of a hundred — the fixed costs here
+    lets a batch of a hundred cost one call and not a hundred. The fixed costs here
     are Python overhead, pandas conversions and scikit-learn's input validation, and none
     of them scales with the number of rows.
     """
     return np.asarray(bundle.pipe.predict_proba(frame))[:, 1].astype(float)
-
-
-def _log_prediction_best_effort(
-    *,
-    request_id: str,
-    req: PredictRequest,
-    response_payload: dict,
-    proba: float | None,
-    decision: int | None,
-    latency_ms: float,
-    status_code: int = 200,
-    failure_kind: FailureKind | None = None,
-    error_message: str | None = None,
-) -> None:
-    """Persist prediction logs when a database is available.
-
-    Logging must never prevent the API from returning a prediction. This is
-    especially important for remote demos where Supabase may be unreachable or
-    rate-limited.
-    """
-    if BUNDLE is None:
-        return
-
-    db = SessionLocal()
-    try:
-        db_log = build_prediction_log(
-            request_id=request_id,
-            sk_id_curr=req.sk_id_curr,
-            model_name=BUNDLE.model_name,
-            model_version=BUNDLE.model_version,
-            threshold=float(BUNDLE.threshold),
-            proba_default=proba,
-            decision=decision,
-            latency_ms=float(latency_ms),
-            status_code=status_code,
-            input_payload=req.model_dump(),
-            output_payload=response_payload,
-            error_message=error_message,
-            failure_kind=failure_kind.value if failure_kind else None,
-        )
-        db.add(db_log)
-        db.commit()
-    except Exception as exc:
-        db.rollback()
-        log.warning(
-            "prediction_log_failed",
-            extra={
-                "request_id": request_id,
-                "error": repr(exc),
-            },
-        )
-    finally:
-        db.close()
-
-
-def _log_failure(
-    *,
-    request_id: str,
-    req: PredictRequest,
-    kind: FailureKind,
-    status_code: int,
-    exc: Exception,
-    latency_ms: float,
-) -> None:
-    """Record a request that produced no score, in the log and in the database."""
-    log.exception(
-        str(kind),
-        extra={"request_id": request_id, "failure_kind": str(kind), "error": repr(exc)},
-    )
-    observe_failure(failure_kind=str(kind))
-    _log_prediction_best_effort(
-        request_id=request_id,
-        req=req,
-        response_payload={},
-        proba=None,
-        decision=None,
-        latency_ms=latency_ms,
-        status_code=status_code,
-        failure_kind=kind,
-        error_message=repr(exc)[:1000],
-    )
 
 
 def _predict_one(req: PredictRequest, request_id: str | None = None) -> PredictResponse:
@@ -280,6 +239,7 @@ def _predict_one(req: PredictRequest, request_id: str | None = None) -> PredictR
         # every error rate computed from it wrong by construction, and leaves an incident
         # with nothing to read afterwards.
         _log_failure(
+            bundle=BUNDLE,
             request_id=prediction_request_id,
             req=req,
             kind=FailureKind.INFERENCE_ERROR,
@@ -310,6 +270,7 @@ def _predict_one(req: PredictRequest, request_id: str | None = None) -> PredictR
         decision=decision,
     )
     _log_prediction_best_effort(
+        bundle=BUNDLE,
         request_id=prediction_request_id,
         req=req,
         response_payload=response_payload,
@@ -349,9 +310,8 @@ def predict_batch(req: BatchPredictRequest, request: Request) -> BatchPredictRes
     """Predict default risk for a batch of clients, in one call to the model.
 
     The repository presents batching as its retained optimisation, so the endpoint that
-    carries the name has to actually batch. One frame, one ``predict_proba``: the costs
-    that do not scale with the number of rows — Python overhead, pandas conversions,
-    scikit-learn's validation — are paid once instead of once per client.
+    carries the name has to actually batch. One frame, one ``predict_proba``, and whatever
+    does not grow with the number of rows is paid once for all of them.
 
     Logging stays per row. The database holds one line per prediction, not one per
     request, and each keeps the derived request id it already had.
@@ -372,6 +332,7 @@ def predict_batch(req: BatchPredictRequest, request: Request) -> BatchPredictRes
         latency_ms = (time.perf_counter() - start) * 1000
         for index, item in enumerate(req.items):
             _log_failure(
+                bundle=BUNDLE,
                 request_id=f"{base_request_id}:{index}",
                 req=item,
                 kind=FailureKind.INFERENCE_ERROR,
@@ -385,7 +346,7 @@ def predict_batch(req: BatchPredictRequest, request: Request) -> BatchPredictRes
         ) from exc
 
     # Divided across the batch, so a row's latency stays comparable to a single
-    # prediction's rather than reporting the whole batch against every client.
+    # prediction's, so the whole batch is not reported against every client.
     latency_ms = (time.perf_counter() - start) * 1000 / max(len(req.items), 1)
 
     results = []
@@ -407,6 +368,7 @@ def predict_batch(req: BatchPredictRequest, request: Request) -> BatchPredictRes
             decision=decision,
         )
         _log_prediction_best_effort(
+            bundle=BUNDLE,
             request_id=f"{base_request_id}:{index}",
             req=item,
             response_payload=payload,

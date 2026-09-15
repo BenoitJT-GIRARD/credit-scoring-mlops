@@ -41,9 +41,8 @@ class PredictionLog(Base):
     model_version: Mapped[str] = mapped_column(String(64), nullable=False)
 
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
-    # Nullable, because a failed request has no score. Zero is a score; the absence of
-    # one is not, and storing 0.0 for a failure would corrupt every rate computed from
-    # this table.
+    # Nullable. A failed request produced no score, and 0.0 is a score: written here it
+    # would pull down every mean and every rate this table is ever asked for.
     proba_default: Mapped[float | None] = mapped_column(Float, nullable=True)
     decision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     latency_ms: Mapped[float] = mapped_column(Float, nullable=False)

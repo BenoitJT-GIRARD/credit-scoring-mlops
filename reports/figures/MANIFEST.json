@@ -1,0 +1,138 @@
+{
+  "images": {
+    "calibration.png": {
+      "axes": [
+        {
+          "title": "Calibration on the holdout",
+          "x": "Mean predicted probability, in equal-population bins",
+          "y": "Observed default rate"
+        }
+      ],
+      "dispersion": null,
+      "dpi": 200,
+      "n": "n(applicants) = 30751, n(bins) = 10",
+      "sha256": "8e6b5119bb3a242b16b0b01ab6f1e220be6ecf0989e0b58b1d110bde74e6013d",
+      "source": "scripts/calibration_report.py",
+      "style_version": 1,
+      "written": "2026-09-15"
+    },
+    "cost_sensitivity.png": {
+      "axes": [
+        {
+          "title": "The decision rests on an assumed ratio",
+          "x": "Cost of a false negative, relative to a false positive",
+          "y": "Optimal threshold"
+        },
+        {
+          "title": "",
+          "x": "Cost of a false negative, relative to a false positive",
+          "y": "Cost per applicant"
+        }
+      ],
+      "dispersion": null,
+      "dpi": 200,
+      "n": "n(applicants) = 30751, n(ratios) = 9",
+      "sha256": "f58472e617ed0583401314b6971c2eabd5079c1444647a1fe5cbffe6f361f2f8",
+      "source": "credexp.modeling.decision_report",
+      "style_version": 1,
+      "written": "2026-09-15"
+    },
+    "fairness_age.png": {
+      "axes": [
+        {
+          "title": "Refusal rate by age band",
+          "x": "Group, and how many applicants it holds",
+          "y": "Refusal rate at the shipped threshold"
+        }
+      ],
+      "dispersion": null,
+      "dpi": 200,
+      "n": "n(applicants) = 30751, n(groups) = 5",
+      "sha256": "f9f73463d67219b1abd01163b2524ea19d67350eb072ca38344545525f839fae",
+      "source": "credexp.modeling.decision_report",
+      "style_version": 1,
+      "written": "2026-09-15"
+    },
+    "fairness_gender.png": {
+      "axes": [
+        {
+          "title": "Refusal rate by sex",
+          "x": "Group, and how many applicants it holds",
+          "y": "Refusal rate at the shipped threshold"
+        }
+      ],
+      "dispersion": null,
+      "dpi": 200,
+      "n": "n(applicants) = 30751, n(groups) = 2",
+      "sha256": "2db5b68cbba667907efe0b489293d7e2a8c345af74e1d42a08c4a52ddee6a603",
+      "source": "credexp.modeling.decision_report",
+      "style_version": 1,
+      "written": "2026-09-15"
+    },
+    "feature_importance_gain.png": {
+      "axes": [
+        {
+          "title": "Total gain per feature, top 30",
+          "x": "Total gain over every split that used the feature",
+          "y": "Feature"
+        }
+      ],
+      "dispersion": null,
+      "dpi": 200,
+      "n": "n(features shown) = 30, n(features fitted) = 796",
+      "sha256": "fc6f3e1baf92af780c73bf07ff001d5c42fb743310c578147045d82389dbbce5",
+      "source": "credexp.modeling.explainability",
+      "style_version": 1,
+      "written": "2026-09-15"
+    },
+    "shap_beeswarm.png": {
+      "axes": [
+        {
+          "title": "How each feature moved each applicant's score",
+          "x": "SHAP value (impact on model output)",
+          "y": "Feature, ordered by mean absolute contribution"
+        }
+      ],
+      "dispersion": null,
+      "dpi": 200,
+      "n": "n(applicants) = 1500, n(features shown) = 30",
+      "sha256": "4644b37628f41d366fcbb71e02b2f08cf27bbc336e18bf4781fc7c4aa67e1ca2",
+      "source": "credexp.modeling.explainability",
+      "style_version": 1,
+      "written": "2026-09-15"
+    },
+    "shap_waterfall_high_risk.png": {
+      "axes": [
+        {
+          "title": "",
+          "x": "Contribution to the log-odds of default",
+          "y": "Feature, and this applicant's value for it"
+        }
+      ],
+      "dispersion": null,
+      "dpi": 200,
+      "n": "n(applicants) = 1, n(features shown) = 25",
+      "sha256": "993304d9bf40c0a8c9bff2be73e30e9d7e4a7d9c930a47c9be2f29305d9256bd",
+      "source": "credexp.modeling.explainability",
+      "style_version": 1,
+      "written": "2026-09-15"
+    },
+    "shap_waterfall_low_risk.png": {
+      "axes": [
+        {
+          "title": "",
+          "x": "Contribution to the log-odds of default",
+          "y": "Feature, and this applicant's value for it"
+        }
+      ],
+      "dispersion": null,
+      "dpi": 200,
+      "n": "n(applicants) = 1, n(features shown) = 25",
+      "sha256": "6f4091891af8641297738e0effc7f4c3fe27d31387ff70bb2462c93a61696c4f",
+      "source": "credexp.modeling.explainability",
+      "style_version": 1,
+      "written": "2026-09-15"
+    }
+  },
+  "schema": "image-manifest/1"
+}

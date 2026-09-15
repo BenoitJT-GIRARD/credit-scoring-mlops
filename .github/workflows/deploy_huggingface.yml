@@ -32,9 +32,9 @@ jobs:
       MODEL_LOAD_MODE: joblib
       MODEL_NAME: credit_scoring_model
       MODEL_VERSION: hf-space
-      MODEL_JOBLIB_PATH: artifacts/models/pipeline.joblib
-      THRESHOLD_PATH: artifacts/models/threshold.json
-      FEATURE_COLUMNS_PATH: artifacts/models/feature_columns.json
+      MODEL_JOBLIB_PATH: models/pipeline.joblib
+      THRESHOLD_PATH: models/threshold.json
+      FEATURE_COLUMNS_PATH: models/feature_columns.json
 
     steps:
       - name: Checkout repository
@@ -69,24 +69,24 @@ jobs:
 
       - name: Validate model artifacts
         run: |
-          test -f artifacts/models/pipeline.joblib
-          test -f artifacts/models/threshold.json
-          test -f artifacts/models/feature_columns.json
+          test -f models/pipeline.joblib
+          test -f models/threshold.json
+          test -f models/feature_columns.json
 
       - name: Build Hugging Face Docker image
-        run: docker build -f deploy/huggingface/Dockerfile -t credexp-hf-space:ci .
+        run: docker build -f infra/huggingface/Dockerfile -t credexp-hf-space:ci .
 
       - name: Prepare Hugging Face Space folder
         run: |
           rm -rf _hf_space
           mkdir -p _hf_space
 
-          cp deploy/huggingface/README.md _hf_space/README.md
-          cp deploy/huggingface/Dockerfile _hf_space/Dockerfile
+          cp infra/huggingface/README.md _hf_space/README.md
+          cp infra/huggingface/Dockerfile _hf_space/Dockerfile
 
-          mkdir -p _hf_space/deploy/huggingface
-          cp deploy/huggingface/nginx.conf _hf_space/deploy/huggingface/nginx.conf
-          cp deploy/huggingface/start.sh _hf_space/deploy/huggingface/start.sh
+          mkdir -p _hf_space/infra/huggingface
+          cp infra/huggingface/nginx.conf _hf_space/infra/huggingface/nginx.conf
+          cp infra/huggingface/start.sh _hf_space/infra/huggingface/start.sh
 
           cp pyproject.toml _hf_space/pyproject.toml
           cp uv.lock _hf_space/uv.lock
@@ -94,18 +94,18 @@ jobs:
 
           cp -r src _hf_space/src
           cp -r scripts _hf_space/scripts
-          cp -r streamlit_app _hf_space/streamlit_app
+          cp -r src/credexp/app _hf_space/src/credexp/app
 
           mkdir -p _hf_space/artifacts
-          cp -r artifacts/models _hf_space/artifacts/models
+          cp -r models _hf_space/models
 
       - name: Validate Space folder
         run: |
           test -f _hf_space/README.md
           test -f _hf_space/Dockerfile
-          test -f _hf_space/artifacts/models/pipeline.joblib
-          test -f _hf_space/artifacts/models/threshold.json
-          test -f _hf_space/artifacts/models/feature_columns.json
+          test -f _hf_space/models/pipeline.joblib
+          test -f _hf_space/models/threshold.json
+          test -f _hf_space/models/feature_columns.json
           find _hf_space -maxdepth 3 -type f | sort | head -50
 
       - name: Install Hugging Face Hub

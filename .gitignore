@@ -1,90 +1,35 @@
-# --- Python ---
+# What this repository does not track.
+#
+# The path carries the role. `models/`, `reports/` and `docs/` hold what is published;
+# everything a run leaves behind lives under `var/`, including the Kaggle download, the
+# frames derived from it, the MLflow store and the coverage database. No line here begins
+# with `!`, because an exception means the line above ignored something that had to be
+# kept, and that arbitration belongs to the tree rather than to this file. The version this
+# replaces carried eight of them, five to re-include the three model files.
+
+# Everything a run writes and no reader opens: logs, checkpoints, MLflow, TensorBoard,
+# profiles, the coverage database and its HTML report. The only ignored directory.
+var/
+
+# Python
 __pycache__/
 *.py[cod]
-*.py[oc]
-wheels/
-*.pyd
-*.so
 *.egg-info/
-dist/
-build/
-pip-wheel-metadata/
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-.cache/
-.mypy_cache/
-.ruff_cache/
-
-# --- Virtual envs ---
 .venv/
-venv/
-ENV/
-env/
 
-# --- Jupyter / Notebooks ---
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .ipynb_checkpoints/
-*.nbconvert.ipynb
-notebooks/reports/monitoring/*.html
-# Coverage output is rewritten by every test run: it dirties the tree for no gain.
-reports/coverage/
-notebooks/reports/monitoring/*.json
 
-# --- IDEs ---
+# Secrets. `.env.example` is tracked and is not matched by this line: it is `.env` exactly,
+# so keeping the example needs no exception.
+.env
+.streamlit/secrets.toml
+
+# Editors and operating systems
 .vscode/
 .idea/
-*.iml
-
-# --- OS ---
 .DS_Store
 Thumbs.db
-
-# --- Env / secrets ---
-.env
-.env.*
-!.env.example
-
-# --- MLflow / local experiment stores ---
-mlruns/
-mlflow/
-mlruns_old/
-*.db
-
-# --- Data (NE JAMAIS committer raw Kaggle) ---
-data/raw/
-data/interim/
-data/processed/
-
-# --- Generic temporary exports ---
-*.parquet
-*.feather
-*.pkl
-*.joblib
-
-# --- Project artifacts ---
-artifacts/explainability/
-artifacts/reports/
-logs/
-
-# --- Allow only remote deployment model artifacts ---
-!artifacts/
-!artifacts/models/
-!artifacts/models/pipeline.joblib
-!artifacts/models/threshold.json
-!artifacts/models/feature_columns.json
-
-# --- Optional ONNX artifact: keep ignored unless you explicitly decide to ship it ---
-artifacts/models/*.onnx
-
-# --- Reports kept in the repository ---
-# The metadata of each monitoring run is versioned; the rendered HTML is not. Evidently
-# reports embed their data and one reached 34 MB, which has no business in a git history
-# when scripts/monitoring_drift.py regenerates it on demand.
-!reports/
-!reports/monitoring/
-!reports/performance/
-reports/monitoring/*.html
-
-# --- Docker local ---
-docker-compose.override.yml

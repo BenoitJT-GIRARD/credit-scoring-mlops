@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from credexp.config import DATA_DIR
+from credexp.utils import PROCESSED_DIR
 
 
 @dataclass(frozen=True)
@@ -37,7 +37,7 @@ def _sha256(path: Path) -> str:
 
 def load_features(features_path: Path | None = None) -> Dataset:
     if features_path is None:
-        features_path = DATA_DIR / "processed" / "features.parquet"
+        features_path = PROCESSED_DIR / "features.parquet"
 
     df = pd.read_parquet(features_path)
     file_hash = _sha256(features_path)

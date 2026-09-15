@@ -1,7 +1,7 @@
 """Profile `predict_proba` over two hundred rows, and write the cumulative-time table.
 
-Paths in the output are made relative to the repository root: an absolute path pins the
-committed report to whoever ran it.
+Every path in the output is written relative to the root, so the committed profile does not
+carry the name of a home directory.
 """
 
 from __future__ import annotations
@@ -11,13 +11,13 @@ import io
 import json
 import pstats
 import time
-from pathlib import Path
 
 import joblib
 import pandas as pd
 
 from credexp.config import settings
 from credexp.data.io import processed_dir
+from credexp.utils import PERFORMANCE_DIR, PIPELINE_PATH
 
 
 def load_holdout_sample(n_rows: int = 200) -> pd.DataFrame:
@@ -29,7 +29,7 @@ def load_holdout_sample(n_rows: int = 200) -> pd.DataFrame:
 
 
 def load_pipeline():
-    model_path = settings.artifacts_dir / "models" / "pipeline.joblib"
+    model_path = PIPELINE_PATH
     return joblib.load(model_path)
 
 
@@ -56,7 +56,7 @@ def main() -> None:
     min_ms = min(timings_ms)
     max_ms = max(timings_ms)
 
-    output_dir = Path("reports/performance")
+    output_dir = PERFORMANCE_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
 
     stats_path = output_dir / "cprofile_inference.prof"

@@ -1,8 +1,8 @@
 {
   "status": "success",
-  "pipeline_path": "artifacts/models/pipeline.joblib",
-  "holdout_path": "data/processed/api_holdout.parquet",
-  "onnx_model_path": "artifacts/models/lightgbm_model.onnx",
+  "pipeline_path": "models/pipeline.joblib",
+  "holdout_path": "var/data/processed/api_holdout.parquet",
+  "onnx_model_path": "models/lightgbm_model.onnx",
   "n_rows": 500,
   "native_pipeline_total_ms": 31.914199935272336,
   "native_pipeline_ms_per_row": 0.06382839987054467,

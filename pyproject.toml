@@ -73,35 +73,35 @@ serve = [
 
 [tool.ruff]
 line-length = 100
-exclude = [
-  "notebooks",
-  "data",
-  "mlruns",
-  "artifacts",
-]
+# `var/` holds what a run leaves behind. Nothing else is excluded: a notebook is code a
+# reader reads, and excluding it from the linter is how four of its cells came to carry
+# French titles and a second answer to where the project root is.
+extend-exclude = ["var"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+# A notebook spreads its imports across cells: the first one sets the environment up, and
+# the ones that follow sit next to the code that uses them, which is what makes a notebook
+# readable in order.
+"notebooks/**/*.ipynb" = ["E402", "F401", "I001", "B018"]
+
 [tool.ruff.format]
-exclude = ["notebooks"]
 quote-style = "double"
 
 [tool.pytest.ini_options]
-markers = [
-    "integration: needs a real provisioned service (a loaded model, a reachable database)",
-]
-addopts = """
--ra
---cov=credexp
---cov-report=term-missing
---cov-report=xml:reports/coverage/coverage.xml
---cov-report=html:reports/coverage/html
---cov-fail-under=20
-"""
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = "-ra --strict-markers --cov --cov-branch --cov-report=term-missing --cov-report=xml"
+markers = [
+    "integration: two real components of the repository wired together, or one against a real external dependency",
+    "system: the product started the way the README says to start it, questioned through its public surface",
+    "claim: fails when a published number, figure, table or artefact stops matching the code",
+    "simulation: replays a complete scenario on frozen data, with no real service",
+    "slow: takes long enough that a reader deserves to be told before running it",
+]
 # Warnings are errors. Each exemption names the message it silences and comes
 # from a dependency; nothing here silences a whole category.
 filterwarnings = [
@@ -109,8 +109,41 @@ filterwarnings = [
     # protobuf calls datetime.utcfromtimestamp at import time, reached through mlflow's
     # entity module. Raising there kills collection before a single test runs.
     "ignore:datetime.datetime.utcfromtimestamp:DeprecationWarning",
+    # scikit-learn, on every prediction made with the shipped pipeline. `SimpleImputer`
+    # hands the classifier a bare array, and the classifier was fitted with column names,
+    # so it says so once per call. What keeps the prediction right is the order, and
+    # `models/feature_columns.json` is that order: `tests/integration/test_api.py` pins it
+    # by shuffling the columns and watching the score move. The model is frozen and cannot
+    # be refitted without the Home Credit data, so the warning is named here rather than
+    # made to disappear.
+    "ignore:X does not have valid feature names:UserWarning",
+    # Evidently 0.7 ships a docstring holding an unescaped regular expression, and Python
+    # compiles it to a SyntaxWarning. As an error it stops the import, so nothing under
+    # `credexp.monitoring` could be tested at all: the drift code had no coverage, and the
+    # reason was not that nobody had written the tests.
+    "ignore:invalid escape sequence:SyntaxWarning",
 ]
+
+[tool.coverage.run]
+branch = true
+source = ["src", "scripts"]
+data_file = "var/.coverage"
+
+[tool.coverage.report]
+# The floor is the rate measured on the day the suite was completed, rounded down. A floor
+# below the current rate is not a floor: it lets the next commit lose coverage silently.
+fail_under = 37
+show_missing = true
+skip_covered = true
+
+[tool.coverage.xml]
+# Tracked: a published result a reader can open, and what the coverage badge recomputes from.
+output = "reports/coverage/coverage.xml"
+
+[tool.coverage.html]
+# Not tracked: generated pages nobody reviews in a diff.
+directory = "var/coverage-html"
 
 [tool.bandit]
 targets = ["src/credexp"]
-exclude_dirs = [".venv", "tests", "notebooks"]
+exclude_dirs = [".venv", "tests", "notebooks", "var"]

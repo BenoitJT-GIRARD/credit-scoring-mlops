@@ -21,7 +21,7 @@ from sklearn.metrics import average_precision_score, confusion_matrix, roc_auc_s
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
-from credexp.config import ARTIFACTS_DIR, DATA_DIR, settings
+from credexp.config import settings
 from credexp.modeling.manifest import (
     SCHEMA_VERSION,
     ModelManifest,
@@ -31,6 +31,7 @@ from credexp.modeling.manifest import (
 )
 from credexp.modeling.pipelines import make_numeric_steps
 from credexp.modeling.threshold import business_cost, find_best_threshold
+from credexp.utils import HOLDOUT_PATH, MODELS_DIR, PROCESSED_DIR, TUNING_DIR
 from credexp.utils.logging import get_logger
 
 log = get_logger(__name__)
@@ -43,7 +44,7 @@ except Exception as e:
 
 #: Where the tuning run leaves its trials. Tracked, so the final training and the tuning
 #: that justified it stay attached to each other in the same commit.
-TUNING_ARTEFACT = ARTIFACTS_DIR / "reports" / "optuna_trials.csv"
+TUNING_ARTEFACT = TUNING_DIR / "optuna_trials.csv"
 
 
 def _frame_hash(frame: pd.DataFrame) -> str:
@@ -69,9 +70,7 @@ def _git_revision() -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--features", type=str, default=str(DATA_DIR / "processed" / "features.parquet")
-    )
+    parser.add_argument("--features", type=str, default=str(PROCESSED_DIR / "features.parquet"))
     parser.add_argument("--holdout-size", type=float, default=0.10)
     parser.add_argument("--val-size", type=float, default=0.20)
     parser.add_argument("--cost-fn", type=float, default=10.0)
@@ -100,7 +99,7 @@ def main() -> None:
         stratify=y,
     )
 
-    holdout_path = DATA_DIR / "processed" / "api_holdout.parquet"
+    holdout_path = HOLDOUT_PATH
     holdout = X_holdout.copy()
     holdout["TARGET"] = y_holdout.values
     holdout.to_parquet(holdout_path, index=False)
@@ -206,7 +205,7 @@ def main() -> None:
         )
 
         # 6) Save local artifacts (joblib + threshold json)
-        out_dir = ARTIFACTS_DIR / "models"
+        out_dir = MODELS_DIR
         out_dir.mkdir(parents=True, exist_ok=True)
 
         model_path = out_dir / "pipeline.joblib"

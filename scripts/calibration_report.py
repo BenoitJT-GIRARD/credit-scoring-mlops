@@ -14,7 +14,6 @@ recorded in the README.
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import joblib
@@ -25,10 +24,13 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-
-from credexp.config import ARTIFACTS_DIR, DATA_DIR  # noqa: E402
+from credexp.figure_style import (  # noqa: E402
+    apply_style,
+    close,
+    reference_line,
+    save_figure,
+    series_colours,
+)
 from credexp.modeling.calibration import (  # noqa: E402
     brier,
     calibrate_isotonic,
@@ -36,19 +38,33 @@ from credexp.modeling.calibration import (  # noqa: E402
     reliability,
 )
 from credexp.modeling.threshold import threshold_spread  # noqa: E402
+from credexp.utils import (  # noqa: E402
+    FIGURES_DIR,
+    HOLDOUT_PATH,
+    PERFORMANCE_DIR,
+    PIPELINE_PATH,
+)
 from credexp.utils.logging import get_logger  # noqa: E402
 
 log = get_logger(__name__)
 
-HOLDOUT = DATA_DIR / "processed" / "api_holdout.parquet"
-MODEL = ARTIFACTS_DIR / "models" / "pipeline.joblib"
-OUT_JSON = ROOT / "reports" / "performance" / "calibration.json"
-OUT_FIGURE = ROOT / "reports" / "figures" / "calibration.png"
+HOLDOUT = HOLDOUT_PATH
+MODEL = PIPELINE_PATH
+OUT_JSON = PERFORMANCE_DIR / "calibration.json"
+OUT_FIGURE = FIGURES_DIR / "calibration.png"
 
 
-def _plot(curves: dict[str, pd.DataFrame], summary: dict, path: Path) -> None:
-    figure, axis = plt.subplots(figsize=(6.5, 6))
-    axis.plot([0, 1], [0, 1], color="#bbbbbb", linestyle="--", linewidth=1, label="perfect")
+def _plot(curves: dict[str, pd.DataFrame], summary: dict, n_holdout: int, path: Path) -> None:
+    """Observed default rate against predicted probability, with the diagonal to read it by.
+
+    The diagonal is the reference and is dashed: a point above it is a model that promised
+    less risk than it met. This model sits well below it, which is what the README means by
+    « a ranking score rather than a calibrated probability ».
+    """
+    apply_style()
+    figure, axis = plt.subplots()
+    reference_line(axis, diagonal=True, label="perfectly calibrated")
+    colours = series_colours(sorted(curves))
     for name, curve in curves.items():
         stats = summary[name]
         axis.plot(
@@ -56,15 +72,23 @@ def _plot(curves: dict[str, pd.DataFrame], summary: dict, path: Path) -> None:
             curve["observed"],
             marker="o",
             markersize=4,
+            color=colours[name],
             label=f"{name} — Brier {stats['brier']:.4f}, ECE {stats['ece']:.4f}",
         )
-    axis.set_xlabel("mean predicted probability (equal-population bins)")
-    axis.set_ylabel("observed default rate")
+    axis.set_xlabel("Mean predicted probability, in equal-population bins")
+    axis.set_ylabel("Observed default rate")
     axis.set_title("Calibration on the holdout")
-    axis.legend(fontsize=8, loc="upper left")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    figure.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(figure)
+    axis.legend(fontsize=8, loc="upper left", frameon=False)
+    figure.tight_layout()
+    figure.subplots_adjust(bottom=figure.subplotpars.bottom + 0.08)
+
+    save_figure(
+        figure,
+        path,
+        n={"applicants": n_holdout, "bins": len(next(iter(curves.values())))},
+        source="scripts/calibration_report.py",
+    )
+    close(figure)
 
 
 def main() -> None:
@@ -107,7 +131,7 @@ def main() -> None:
         "raw": reliability(y[test_idx], scores[test_idx]),
         "isotonic": reliability(y[test_idx], recalibrated),
     }
-    _plot(curves, summary, OUT_FIGURE)
+    _plot(curves, summary, len(y), OUT_FIGURE)
 
     OUT_JSON.parent.mkdir(parents=True, exist_ok=True)
     OUT_JSON.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

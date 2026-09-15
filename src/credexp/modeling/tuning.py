@@ -1,6 +1,6 @@
 """Optuna, optimising the business cost rather than a ranking metric.
 
-Tuning for AUC and then choosing a threshold optimises two different things in sequence.
+Tuning for AUC and then cutting at a threshold optimises for one thing and decides another.
 The objective here is the cost the threshold will actually be chosen against.
 """
 
