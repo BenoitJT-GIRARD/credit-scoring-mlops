@@ -7,7 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from credexp.utils import INTERIM_DIR, PROCESSED_DIR, RAW_DIR
+from credexp.utils import INTERIM_DIR, PROCESSED_DIR, RAW_DIR, rel
 from credexp.utils.logging import get_logger
 
 log = get_logger(__name__)
@@ -33,16 +33,16 @@ def ensure_dir(path: Path) -> None:
 
 
 def read_csv(path: Path, **kwargs: Any) -> pd.DataFrame:
-    log.info(f"read_csv path={path}")
+    log.info(f"read_csv path={rel(path)}")
     return pd.read_csv(path, **kwargs)
 
 
 def save_parquet(df: pd.DataFrame, path: Path) -> None:
     ensure_dir(path.parent)
-    log.info(f"save_parquet path={path} shape={df.shape}")
+    log.info(f"save_parquet path={rel(path)} shape={df.shape}")
     df.to_parquet(path, index=False)
 
 
 def load_parquet(path: Path) -> pd.DataFrame:
-    log.info(f"load_parquet path={path}")
+    log.info(f"load_parquet path={rel(path)}")
     return pd.read_parquet(path)

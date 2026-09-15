@@ -31,6 +31,7 @@ from credexp.utils.paths import (
     TUNING_DIR,
     VAR_DIR,
     ensure_dirs,
+    rel,
 )
 
 __all__ = [
@@ -64,4 +65,5 @@ __all__ = [
     "TUNING_DIR",
     "VAR_DIR",
     "ensure_dirs",
+    "rel",
 ]

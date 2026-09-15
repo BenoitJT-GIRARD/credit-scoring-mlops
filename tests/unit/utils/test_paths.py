@@ -29,7 +29,7 @@ def test_an_explicit_override_wins_over_the_marker(tmp_path: Path, monkeypatch) 
 
 
 def test_the_environment_variable_is_named_after_the_package() -> None:
-    """`CREDEXP_ROOT`, computed from the package, so the vendored module names no project."""
+    """`CREDEXP_ROOT`, derived from the package name rather than written down."""
     assert paths.PACKAGE == "credexp"
     assert paths.ROOT_ENV == "CREDEXP_ROOT"
 
@@ -96,8 +96,20 @@ def test_the_root_is_resolved_once_and_read_everywhere(monkeypatch) -> None:
     ],
 )
 def test_every_root_directory_of_the_vocabulary_is_named(name: str) -> None:
-    """The closed vocabulary, as this project's module publishes it."""
+    """Every root directory this project is allowed to have, as its own module names them."""
     path = getattr(paths, name)
 
     assert path.parent == paths.ROOT_DIR or path.parent.parent == paths.ROOT_DIR
     assert os.fspath(path)
+
+
+def test_load_parquet_logs_a_path_anyone_can_follow() -> None:
+    """`load_parquet path=...` ends up read on a machine other than the one that wrote it."""
+    assert paths.rel(paths.REPORTS_DIR / "figures" / "roc.png") == "reports/figures/roc.png"
+
+
+def test_a_table_kept_elsewhere_keeps_its_whole_path(tmp_path) -> None:
+    """The Kaggle tables often sit outside the checkout, and only the full path finds them."""
+    elsewhere = tmp_path / "application_train.csv"
+
+    assert paths.rel(elsewhere) == elsewhere.resolve().as_posix()

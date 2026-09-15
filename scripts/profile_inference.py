@@ -1,7 +1,9 @@
 """Profile `predict_proba` over two hundred rows, and write the cumulative-time table.
 
-Every path in the output is written relative to the root, so the committed profile does not
-carry the name of a home directory.
+Both outputs name their files relative to the project, the binary one included: cProfile
+keys every function by the absolute file it was read from, and a committed profile that
+carries `/home/someone/` or `C:/Users/someone/` says where it was produced and nothing a
+second reader can use.
 """
 
 from __future__ import annotations
@@ -9,15 +11,56 @@ from __future__ import annotations
 import cProfile
 import io
 import json
+import marshal
 import pstats
 import time
+from pathlib import Path
 
 import joblib
 import pandas as pd
 
-from credexp.config import settings
 from credexp.data.io import processed_dir
-from credexp.utils import PERFORMANCE_DIR, PIPELINE_PATH
+from credexp.utils import PERFORMANCE_DIR, PIPELINE_PATH, ROOT_DIR
+
+
+def shorten(name: str) -> str:
+    """The file a function is defined in, without the machine it was read from.
+
+    A built-in has no file — cProfile names it `<built-in method ...>` — and keeps its name.
+    Everything else is answered in this order: inside the project, project-relative; inside
+    an installed environment, from the distribution down; otherwise the file name alone.
+    """
+    if name.startswith("<"):
+        return name
+    path = Path(name)
+    try:
+        return path.relative_to(ROOT_DIR).as_posix()
+    except ValueError:
+        pass
+    parts = path.as_posix().split("/")
+    for marker in ("site-packages", "Lib", "lib"):
+        if marker in parts:
+            return "/".join(parts[parts.index(marker) + 1 :])
+    return path.name
+
+
+def shorten_stats(stats: dict) -> dict:
+    """The same statistics, keyed by shortened files — callers included, or the table lies."""
+
+    def key(entry):
+        filename, lineno, funcname = entry
+        return (shorten(filename), lineno, funcname)
+
+    shortened = {}
+    for entry, (cc, nc, tt, ct, callers) in stats.items():
+        shortened[key(entry)] = (
+            cc,
+            nc,
+            tt,
+            ct,
+            {key(caller): value for caller, value in callers.items()},
+        )
+    return shortened
 
 
 def load_holdout_sample(n_rows: int = 200) -> pd.DataFrame:
@@ -63,18 +106,15 @@ def main() -> None:
     txt_path = output_dir / "cprofile_inference_top20.txt"
     metrics_path = output_dir / "inference_benchmark.json"
 
-    profiler.dump_stats(str(stats_path))
+    profiler.create_stats()
+    profiler.stats = shorten_stats(profiler.stats)
+    with stats_path.open("wb") as handle:
+        marshal.dump(profiler.stats, handle)
 
     s = io.StringIO()
     stats = pstats.Stats(profiler, stream=s).sort_stats("cumulative")
     stats.print_stats(20)
-    # cProfile prints absolute paths, which pins the committed report to whoever ran it.
-    # Strip the project root so the table reads the same on every machine.
-    report = (
-        s.getvalue()
-        .replace(str(settings.project_root) + "\\", "")
-        .replace(str(settings.project_root) + "/", "")
-    )
+    report = s.getvalue()
     txt_path.write_text(report, encoding="utf-8")
 
     payload = {
