@@ -6,7 +6,7 @@
   <img src="docs/badges/python.svg" alt="Python 3.12">
   <img src="docs/badges/stack.svg" alt="Built with Evidently · Grafana · LightGBM">
   <img src="docs/badges/licence.svg" alt="License: MIT">
-  <img src="docs/badges/coverage.svg" alt="coverage 40%">
+  <img src="docs/badges/coverage.svg" alt="coverage 39%">
 </p>
 
 **Project status** — frozen, and still runnable. The hosted Space, the
