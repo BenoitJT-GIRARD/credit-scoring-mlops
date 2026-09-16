@@ -12,7 +12,7 @@ import pandas as pd
 
 from credexp.figure_style import PALETTE, apply_style, close, reference_line, save_figure
 from credexp.modeling.baselines import trivial_baselines
-from credexp.modeling.fairness import age_bands, group_report
+from credexp.modeling.fairness import BAND_LABELS, age_bands, group_report
 from credexp.modeling.sensitivity import bootstrap_cost_ci, cost_ratio_sweep
 from credexp.modeling.threshold import split_threshold_cost, threshold_shift
 from credexp.utils import DECISION_DIR, FIGURES_DIR, HOLDOUT_PATH, MODELS_DIR
@@ -105,7 +105,7 @@ def _plot_fairness(rows: list[dict], title: str, n_holdout: int, path: Path) -> 
         path,
         n={"applicants": n_holdout, "groups": len(rows)},
         source=SOURCE,
-        note="the same threshold applied to every group",
+        note="the same threshold applied to every group; 95 % Wilson interval on each rate",
     )
     close(fig)
 
@@ -176,7 +176,8 @@ def run_decision_analysis() -> dict:
             cost_fp,
         ),
         "fairness_age": group_report(
-            y, proba, age_bands(df["DAYS_BIRTH"]), threshold, cost_fn, cost_fp
+            y, proba, age_bands(df["DAYS_BIRTH"]), threshold, cost_fn, cost_fp,
+            order=BAND_LABELS,
         ),
         "baselines": trivial_baselines(y, cost_fn, cost_fp),
     }

@@ -7,6 +7,8 @@ Nothing here corrects anything: it measures, so the gap can be stated.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import numpy as np
 
 from credexp.modeling.threshold import business_cost
@@ -26,6 +28,21 @@ def _rate(numerator: int, denominator: int) -> float | None:
     return float(numerator / denominator) if denominator else None
 
 
+def wilson(successes: int, trials: int, z: float = 1.96) -> tuple[float, float] | None:
+    """The Wilson interval on a proportion, which the normal approximation gets wrong.
+
+    Near zero or one — a refusal rate of 0.03 on a small band — the textbook interval runs
+    past the ends of the scale and says the rate could be negative. Wilson never does.
+    """
+    if not trials:
+        return None
+    p = successes / trials
+    denominator = 1.0 + z * z / trials
+    centre = (p + z * z / (2 * trials)) / denominator
+    half = z * ((p * (1 - p) / trials + z * z / (4 * trials * trials)) ** 0.5) / denominator
+    return max(0.0, centre - half), min(1.0, centre + half)
+
+
 def group_report(
     y_true,
     y_proba,
@@ -33,13 +50,22 @@ def group_report(
     threshold: float,
     cost_fn: float,
     cost_fp: float,
+    order: Sequence[str] | None = None,
 ) -> list[dict]:
+    """One row per group. `order` fixes the reading order; without it groups sort by name.
+
+    An age band read alphabetically puts « <30 » after « 60+ », which turns a monotone
+    gradient into a sawtooth and invites the reader to see a pattern that is not there.
+    """
     y_true = np.asarray(y_true)
     y_proba = np.asarray(y_proba)
     groups = np.asarray(groups)
 
+    seen = set(groups.tolist())
+    names = [g for g in order if g in seen] if order else sorted(seen)
+
     rows = []
-    for name in sorted(set(groups.tolist())):
+    for name in names:
         mask = groups == name
         y_g, p_g = y_true[mask], y_proba[mask]
         predicted = p_g >= threshold
@@ -56,6 +82,7 @@ def group_report(
                 "n": n,
                 "default_rate": _rate(positives, n),
                 "refusal_rate": _rate(int(predicted.sum()), n),
+                "refusal_ci": wilson(int(predicted.sum()), n),
                 "fnr": _rate(false_negatives, positives),
                 "fpr": _rate(false_positives, negatives),
                 "cost_per_row": (

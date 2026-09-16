@@ -35,7 +35,7 @@
       "sha256": "f58472e617ed0583401314b6971c2eabd5079c1444647a1fe5cbffe6f361f2f8",
       "source": "credexp.modeling.decision_report",
       "style_version": 1,
-      "written": "2026-09-15"
+      "written": "2026-09-16"
     },
     "fairness_age.png": {
       "axes": [
@@ -48,10 +48,10 @@
       "dispersion": null,
       "dpi": 200,
       "n": "n(applicants) = 30751, n(groups) = 5",
-      "sha256": "f9f73463d67219b1abd01163b2524ea19d67350eb072ca38344545525f839fae",
+      "sha256": "184685b95757ac1f60dfafd048e3b6d30143921a040445510672ca3111d55b9a",
       "source": "credexp.modeling.decision_report",
       "style_version": 1,
-      "written": "2026-09-15"
+      "written": "2026-09-16"
     },
     "fairness_gender.png": {
       "axes": [
@@ -64,10 +64,10 @@
       "dispersion": null,
       "dpi": 200,
       "n": "n(applicants) = 30751, n(groups) = 2",
-      "sha256": "2db5b68cbba667907efe0b489293d7e2a8c345af74e1d42a08c4a52ddee6a603",
+      "sha256": "f210d2b292178d4f046e404a5f7c170fa425beb8e41ded6714483dd7a7d4d6da",
       "source": "credexp.modeling.decision_report",
       "style_version": 1,
-      "written": "2026-09-15"
+      "written": "2026-09-16"
     },
     "feature_importance_gain.png": {
       "axes": [
