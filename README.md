@@ -124,6 +124,12 @@ are in the table:
 | accept everyone | 30 751 | 0.8075 |
 | **the model, at threshold 0.49** | 30 751 | **0.4888** |
 
+> **How to read it.** Each row is a decision policy applied to the same applicants, and
+> `cost_per_row` is what it loses on average per applicant under the assumed prices: one unit
+> for someone wrongly refused, ten for a default let through, nothing for a correct call. Lower
+> is better. The three rows above the model need no model at all, which is what makes the last
+> row's distance from them the measure of what learning bought.
+
 Refusing everyone is a serious policy at this cost ratio, which is exactly why it belongs in
 the table; `credexp.modeling.baselines` says why the three were chosen. The model roughly
 halves the cost of the best of them.
@@ -146,6 +152,14 @@ anything at all, and how much from learning it with trees.
 | lr | | 30 751 | 0.7348 | 0.2238 | 0.5623 |
 | **lgbm** | | 30 751 | **0.7433** | **0.2324** | **0.5472** |
 
+> **How to read it.** One row per model family, all cross-validated on the same holdout.
+> ROC AUC (area under the receiver operating characteristic curve) answers one question: set a
+> future defaulter beside somebody who repaid, and how often does the model order the pair
+> correctly? It says nothing about where the threshold should sit. PR AUC
+> (area under the precision-recall curve) is the one to read on a population where few people
+> default, because its floor is the default rate itself. `business_cost_per_row` prices the same
+> decisions out of sample, before any threshold has been tuned.
+
 Learning at all is worth 0.24 per applicant. Choosing gradient-boosted trees over a logistic
 regression is worth 0.015, sixteen times less. Notebook 03 reads the same table and says what
 that ratio means for a feature set of 796 engineered columns.
@@ -158,6 +172,13 @@ rebuilds the table, and its header says why that frame.
 
 <!-- source: reports/figures/MANIFEST.json -->
 ![Optimal threshold and cost per applicant against the assumed cost ratio, over n = 9 ratios from one to fifty, each optimised on the same n = 30751 applicants, with the shipped ratio marked](reports/figures/cost_sensitivity.png)
+
+> **How to read it.** The horizontal axis carries the assumption this whole page rests on: how
+> much a default costs relative to a wrongly refused applicant. Two series share it. The blue
+> line, read on the left axis, is the threshold that minimises expected cost at each assumption;
+> the orange line, read on the right axis, is what the resulting decision costs per applicant.
+> The dashed marker is the ratio this repository assumes. The blue line crosses most of its own
+> range, so the assumption decides more than the model does.
 
 <!-- source: reports/decision/decision_analysis.json -->
 Ten to one is an assumption. It was not measured, and over the n = 9 ratios swept the optimal
@@ -182,6 +203,13 @@ applicant, *given* ten to one".
 | men | 10 371 | 0.1030 | 0.3781 | 0.2425 |
 | women | 20 380 | 0.0694 | 0.2325 | 0.3859 |
 
+> **How to read it.** One row per group of applicants. `default_rate` is the share of the group
+> who did default, measured and not predicted, and it is the denominator the other two columns
+> are read against. `refusal_rate` is the share the shipped threshold turns down. `fnr` is the
+> false negative rate, the share of that group's own defaulters the threshold let through. Low
+> refusal beside a high false negative rate means a group is trusted more than its record
+> supports.
+
 <!-- source: reports/decision/decision_analysis.json -->
 Over n = 4349 applicants under thirty the refusal rate is **0.4842**; over n = 3641 applicants
 of sixty and over it is **0.1247**. Part of that follows real risk, a default rate of 0.1122
@@ -191,6 +219,12 @@ detection are the same fact seen twice.
 
 <!-- source: reports/figures/MANIFEST.json -->
 ![Refusal rate by age band at the shipped threshold, over n = 30751 applicants, with the population of each band written under its bar](reports/figures/fairness_age.png)
+
+> **How to read it.** One bar per age band, its height the share of that band the shipped
+> threshold refuses, with the population of the band written underneath. The bands run in age
+> order and not in height order, so a steady slope is a real gradient and a jagged one would not
+> be. Set each bar against the same band's default rate in the table above: the distance between
+> the two is what the threshold adds to the risk the group already carries.
 
 Nothing here is corrected. Adjusting a credit model for fairness commits to a definition of
 fairness, and several reasonable definitions are mutually exclusive: equal refusal rates and
@@ -204,6 +238,12 @@ land in `reports/decision/`.
 
 <!-- source: reports/figures/MANIFEST.json -->
 ![SHAP values over n = 1500 applicants, one dot per applicant and per feature, ordered by mean absolute contribution](reports/figures/shap_beeswarm.png)
+
+> **How to read it.** One row per feature, ordered by how much it moves scores overall. Each dot
+> is one applicant: its position says how far that feature pushed that person's score, right for
+> up and left for down, and its shade says whether that person's own value for the feature was
+> high or low. SHAP (SHapley Additive exPlanations) splits a single prediction into one
+> contribution per feature, so a wide row is a feature that decides a great deal for somebody.
 
 Three external credit-bureau scores carry most of the decision, and after them comes the loan's
 own arithmetic: the annuity, the payment rate, the goods price. That ordering is worth having
@@ -222,6 +262,12 @@ A single applicant decomposes the same way:
 
 <!-- source: reports/figures/MANIFEST.json -->
 ![One applicant of the n = 1500 explained, feature by feature, from the model's average output to this applicant's score](reports/figures/shap_waterfall_high_risk.png)
+
+> **How to read it.** A single applicant, one row per feature, with that person's own value
+> printed beside the feature name. Each bar is the push that feature gave, in log-odds, which is
+> the scale the model adds up on before anything is turned into a probability. Bars reaching
+> right raise the risk and bars reaching left lower it. Begin at the model's average output, add
+> every bar, and the total is the score this applicant received.
 
 <!-- source: reports/explainability/explainability_meta.json -->
 The model's average output is a log-odds of **-0.753**, computed over the n = 5000 background
@@ -262,6 +308,12 @@ decision, and 27 % of applicants are refused at the current one.
 | after isotonic recalibration | 30 751 | 0.0815 | 0.0639 | **0.0060** |
 | the true base rate | 30 751 | 0.0788 | | |
 
+> **How to read it.** Each row is the same holdout scored a different way. `mean_score` is the
+> average probability handed back, and the last row gives the rate it should be compared with.
+> `brier` is the mean squared distance between a returned probability and what actually
+> happened, so it rewards ranking well and being honest about the scale at once. `ece` is the
+> expected calibration error, the average gap between what was promised and what occurred.
+
 <!-- source: reports/performance/calibration.json -->
 Over the n = 30751 holdout the model overstates default risk across the whole range: a mean
 score of **0.3656** against a base rate of **0.0788**, which is a factor of nearly five. This is the price of
@@ -271,6 +323,12 @@ constant reorders nothing.
 
 <!-- source: reports/figures/MANIFEST.json -->
 ![Observed default rate against predicted probability over n = 30751 applicants in ten equal-population bins, before and after isotonic recalibration, with the diagonal drawn dashed](reports/figures/calibration.png)
+
+> **How to read it.** Every applicant of the holdout falls into one of ten bins holding the same
+> number of people, ranked by the probability the model handed them. A bin's position across the
+> chart is the probability it was promised; its height is the share of it that defaulted. The
+> diagonal is where those two agree. A curve running below the diagonal along its whole length
+> is a model claiming more risk than it goes on to find.
 
 Isotonic recalibration, fitted on half the holdout and measured on the other half, removes
 almost all of it. Shipping it properly means fitting the calibrator during training, on the

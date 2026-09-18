@@ -70,6 +70,12 @@ ordering, and that is what a family comparison is for.
 <!-- source: reports/figures/MANIFEST.json -->
 ![Total gain per feature over the n = 796 columns, top 30, as the fitted trees split on them](../reports/figures/feature_importance_gain.png)
 
+> **How to read it.** One row per column of the feature set, the thirty largest of those the
+> model was fitted on. The length is total gain, which sums how much every split on that column
+> improved the trees that used it, so the chart describes the fitted model and never the
+> applicants. Two columns carrying the same information divide this total between them in a way
+> no reading can undo.
+
 Gain is a property of the fitted trees rather than of the applicants: two correlated columns
 share the credit between them arbitrarily. The SHAP figures in the README answer the other
 question, on the applicants themselves, and the lowest-risk applicant of the sample decomposes
@@ -77,6 +83,12 @@ the same way as the highest:
 
 <!-- source: reports/figures/MANIFEST.json -->
 ![One applicant of the n = 1500 explained, the lowest-risk of them, from the model's average output down to this applicant's score](../reports/figures/shap_waterfall_low_risk.png)
+
+> **How to read it.** The same decomposition the README shows, run here on the safest applicant
+> of the sample where that one took the riskiest. Bars pointing left are the features that
+> argued for accepting this person, and the arithmetic still closes: the average output plus
+> every bar returns the score served. Read side by side, the two figures show one handful of
+> columns driving both verdicts with the signs reversed.
 
 ## What a retraining loop would need
 

@@ -21,3 +21,9 @@
 | 60+ | 3641 | 0.051 | 0.125 | 0.587 | 0.4004 |
 | F | 20380 | 0.069 | 0.232 | 0.386 | 0.4578 |
 | M | 10371 | 0.103 | 0.378 | 0.243 | 0.5498 |
+
+> **How to read it.** One row per group. Default rate is what the group did, counted and
+> never predicted, and every column beside it is read against that. Refusal rate says how
+> often the shipped policy said no to the group. FNR (false negative rate) says how many of
+> its defaulters slipped past. Cost puts both mistakes on a single scale, under the
+> ten-to-one ratio this analysis assumes.

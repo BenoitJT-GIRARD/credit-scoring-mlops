@@ -90,6 +90,12 @@ two populations with different base rates, refuses them at different rates.
 <!-- source: reports/figures/MANIFEST.json -->
 ![Two bars, men and women, of the share each group is refused at the shipped threshold, over n = 30751 applicants and with each group's size under its bar](../reports/figures/fairness_gender.png)
 
+> **How to read it.** Two bars, one per group, each the share of that group the shipped
+> threshold says no to, with the group's size printed below it. The comparison that counts is
+> against each group's own default rate, which the fairness table of the README carries. A
+> refusal rate sitting above the rate at which a group actually defaults is the part that no
+> difference in risk explains.
+
 ## When something stops answering
 
 | Symptom | What it is | What to do |
