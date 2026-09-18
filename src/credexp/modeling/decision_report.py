@@ -188,7 +188,12 @@ def run_decision_analysis() -> dict:
             cost_fp,
         ),
         "fairness_age": group_report(
-            y, proba, age_bands(df["DAYS_BIRTH"]), threshold, cost_fn, cost_fp,
+            y,
+            proba,
+            age_bands(df["DAYS_BIRTH"]),
+            threshold,
+            cost_fn,
+            cost_fp,
             order=BAND_LABELS,
         ),
         "baselines": trivial_baselines(y, cost_fn, cost_fp),
