@@ -62,6 +62,17 @@ dashboard are provisioned from `infra/grafana/`, so the dashboard belongs to the
 not to one person's browser. **Evidently** watches the traffic itself, and **Docker** ships all
 of it.
 
+```mermaid
+flowchart LR
+    REQ([An applicant]) --> API["API<br/>probability, decision, and the threshold it used"]
+    API --> LOG[("PostgreSQL<br/>payload, score, decision,<br/>model version, latency")]
+    API -. "scraped" .-> PROM["Prometheus, drawn by Grafana<br/>both provisioned from the repository"]
+    LOG --> UI["Streamlit<br/>reads the log back"]
+    LOG --> EV["Evidently<br/>watches the traffic itself"]
+    EV -. "drift report" .-> BACK["whether the threshold, or the model,<br/>still holds"]
+    BACK -. "the loop closes here" .-> API
+```
+
 <!-- source: docs/images/MANIFEST.json -->
 ![The provisioned Grafana dashboard: request rate, latency quantiles, and the share of requests the threshold refused](docs/images/grafana-dashboard.png)
 
