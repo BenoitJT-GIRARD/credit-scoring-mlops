@@ -30,7 +30,10 @@ jobs:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/credexp
       API_HOST: 127.0.0.1
       API_PORT: 8000
-      PROMETHEUS_ENABLED: "false"
+      # `true`, as config.py and .env.example both ship it. Set to false, the app drops
+      # its /metrics route, and four tests of tests/integration/test_serving_metrics.py
+      # then assert against a 404: the environment was contradicting the suite.
+      PROMETHEUS_ENABLED: "true"
       MODEL_LOAD_MODE: joblib
       MODEL_NAME: credit_scoring_model
       MODEL_VERSION: ci-joblib
