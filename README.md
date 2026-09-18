@@ -14,7 +14,8 @@ managed database and the API keys have been decommissioned; everything below run
 with `docker compose up`, MLOps stack included: the registry, the metrics, the dashboard and
 the drift watch. The one thing not shipped is the data: Home
 Credit's terms do not allow redistribution. **Ruff** lints, **Bandit** scans and **pytest**
-runs the suite on every push, with **uv** holding the environment to its lock file. No
+runs the suite each time the pipeline is started, with **uv** holding the environment to its
+lock file. No
 workflow trains anything.
 
 **No lending decision belongs here, and the scores are not financial advice.** The dataset
