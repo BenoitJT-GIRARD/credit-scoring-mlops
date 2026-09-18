@@ -110,6 +110,17 @@ def _plot_fairness(rows: list[dict], title: str, n_holdout: int, path: Path) -> 
     close(fig)
 
 
+#: The caption lives in the script, not in the document: written into the document it would be
+#: overwritten the next time this function ran, which is what the header already warns about.
+CAPTION = [
+    "> **How to read it.** One row per group. Default rate is what the group did, counted and",
+    "> never predicted, and every column beside it is read against that. Refusal rate says how",
+    "> often the shipped policy said no to the group. FNR (false negative rate) says how many of",
+    "> its defaulters slipped past. Cost puts both mistakes on a single scale, under the",
+    "> ten-to-one ratio this analysis assumes.",
+]
+
+
 def render_summary(payload: dict) -> str:
     """The published markdown, rendered from the payload beside it and from nothing else.
 
@@ -146,6 +157,7 @@ def render_summary(payload: dict) -> str:
             f"| {row['group']} | {row['n']} | {row['default_rate']:.3f} | "
             f"{row['refusal_rate']:.3f} | {fnr} | {row['cost_per_row']:.4f} |"
         )
+    lines += ["", *CAPTION]
     return "\n".join(lines) + "\n"
 
 
