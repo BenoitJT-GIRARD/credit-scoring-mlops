@@ -17,6 +17,10 @@ Credit's terms do not allow redistribution. **Ruff** lints, **Bandit** scans and
 runs the suite on every push, with **uv** holding the environment to its lock file. No
 workflow trains anything.
 
+**No lending decision belongs here, and the scores are not financial advice.** The dataset
+comes from a public competition, the cost ratio behind the threshold is an assumption and not
+a measurement, and a real credit policy answers to rules this repository never models.
+
 ## The problem
 
 A lender approving a loan makes an asymmetric mistake. Refusing a good applicant costs a
