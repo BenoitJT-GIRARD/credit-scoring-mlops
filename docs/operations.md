@@ -107,9 +107,11 @@ two populations with different base rates, refuses them at different rates.
 | The dashboard is empty | nothing has been scored yet | `scripts/send_sample_traffic.py` |
 | The drift report is empty | the log holds no successful request | give it traffic first |
 
-## The deployment that was
+## Deploying it as a Hugging Face Space
 
-`infra/huggingface/` holds the Dockerfile, the nginx configuration and
-[the Space card](../infra/huggingface/README.md) of a Hugging Face deployment that is
-decommissioned. The folder is kept because it documents how the deployment was built. The
-workflow that pushed it went with the Space: it had nothing left to deploy to.
+`infra/huggingface/` holds what a single-container deployment needs: the Dockerfile, the nginx
+configuration that puts the interface and the API behind one port, the start script and
+[the Space card](../infra/huggingface/README.md). A Docker Space builds the Dockerfile at its
+root and reads the card from its root `README.md`: push this repository to a new Space with
+those two files moved there, and set `DATABASE_URL` as a secret of the Space if the decisions
+should be logged to a managed PostgreSQL. Without it the service runs and logs nothing.
