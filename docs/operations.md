@@ -111,6 +111,5 @@ two populations with different base rates, refuses them at different rates.
 
 `infra/huggingface/` holds the Dockerfile, the nginx configuration and
 [the Space card](../infra/huggingface/README.md) of a Hugging Face deployment that is
-decommissioned. The workflow that pushed it,
-`.github/workflows/deploy_huggingface.yml`, is manual-only for that reason. Both are kept
-because they document how the deployment worked, and neither runs.
+decommissioned. The folder is kept because it documents how the deployment was built. The
+workflow that pushed it went with the Space: it had nothing left to deploy to.
