@@ -8,7 +8,7 @@ authors = [
 ]
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "setuptools<70",
+    "setuptools>=83",
 ]
 
 [build-system]
@@ -34,6 +34,8 @@ db = [
 dev = [
     "bandit>=1.9.3",
     "httpx>=0.28.1",
+    # The test client of starlette 1.x is built on httpx2, and warns if only httpx is there.
+    "httpx2>=2.13.1",
     "pre-commit>=4.5.1",
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
@@ -46,8 +48,13 @@ ml = [
     "scikit-learn>=1.8.0",
 ]
 mlops = [
+    # nltk, pulled in by evidently, carries one advisory without a fixed release: it sits in
+    # nltk's model-file APIs, and the drift reports never call them.
     "evidently>=0.7.20",
-    "mlflow==3.10.0",
+    # evidently still calls a litestar function deprecated in 2.23, and warnings are errors
+    # here: 2.22 is the first release past litestar's advisories and the last without it.
+    "litestar>=2.22,<2.23",
+    "mlflow>=3.15.0",
     "optuna>=4.7.0",
     "shap>=0.45",
 ]
