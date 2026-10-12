@@ -42,7 +42,7 @@ uv run streamlit run src/credexp/app/Overview.py # http://127.0.0.1:8501
 | Route | Answers | A failure means |
 |---|---|---|
 | `/health` | the process is up | restart it |
-| `/ready` | a model is loaded and it can predict | stop sending it traffic |
+| `/model-info` | a model is loaded (503 until one is) | stop sending it traffic |
 
 The container's `HEALTHCHECK` is wired to the first. Wired to the second, a container that has
 not finished loading its model would be killed before it ever could.
@@ -99,7 +99,7 @@ applied to two populations with different base rates, refuses them at different 
 
 | Symptom | What it is | What to do |
 |---|---|---|
-| `/ready` returns 503 | no model loaded | check `MODEL_LOAD_MODE` and that `models/` reached the image |
+| `/model-info` returns 503 | no model loaded | check `MODEL_LOAD_MODE` and that `models/` reached the image |
 | Every prediction is 200 but the log is empty | the database is unreachable | the log is best effort; check `DATABASE_URL`, then `docker compose logs db` |
 | The service takes seconds to start | the database is unreachable and the deadline is waiting | expected: `DB_CONNECT_TIMEOUT` bounds it at three seconds |
 | A prediction returns 422 | a field name is not a feature, or `features` is empty | the response says which; the contract is `extra="forbid"` |

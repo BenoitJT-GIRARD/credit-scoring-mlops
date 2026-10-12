@@ -75,9 +75,8 @@ curl -s -X POST http://127.0.0.1:8000/predict_batch \
 What is serving, and whether it is ready to serve:
 
 ```bash
-curl -s http://127.0.0.1:8000/model-info
-curl -s http://127.0.0.1:8000/health    # the process is up
-curl -s http://127.0.0.1:8000/ready     # a model is loaded and it can predict
+curl -s http://127.0.0.1:8000/health       # the process is up
+curl -s http://127.0.0.1:8000/model-info   # which model is loaded; 503 until one is
 ```
 
 A feature left out of the payload is imputed by the pipeline, so a short request is a valid

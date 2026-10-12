@@ -103,7 +103,9 @@ loader reads it. It records the feature columns and their schema version, the th
 it was chosen, the hyper-parameters and the tuning trial they came from, the imbalance strategy,
 a fingerprint of the training data, and the commit. The hyper-parameters were once copied into
 the training script by hand, so the final model depended on a result that no file linked it to.
-The training now reads them from the tracked trials, and a missing artefact stops the run.
+The training now reads them from the tracked trials, and a missing artefact stops the run. The
+three files shipped under `models/` predate the manifest, so the loader falls back to
+`threshold.json` and `feature_columns.json` and logs that it did.
 
 ## The result
 
@@ -396,9 +398,9 @@ uv run python scripts/build_drift_reference.py   # writes var/data/processed/ref
 uv run python scripts/monitoring_drift.py        # writes reports/monitoring/
 ```
 
-Only the first of the two is watched here, and the report is generated on demand. There is no
-scheduled job, because a job that no one watches eventually turns red on its own and is then
-trusted less than having no job at all.
+Only a change in who is applying is watched here, not a change in what an engineered column
+means, and the report is generated on demand. There is no scheduled job, because a job that no
+one watches eventually turns red on its own and is then trusted less than having no job at all.
 
 <!-- source: docs/images/MANIFEST.json -->
 ![The Evidently drift report over the reference and the logged traffic, with the share of columns it flags at the top](docs/images/drift-report.png)
@@ -422,9 +424,9 @@ family comparison, the tuning study, the explanations, the drift watch, the benc
 ├── reports/    every published number and figure, each written by a script
 ├── src/        the package: data, modeling, monitoring, serving, app
 ├── scripts/    thin entry points that read arguments and call the package
-├── infra/      the images, the compose file, the Grafana and Prometheus provisioning
+├── infra/      the images, the Grafana and Prometheus provisioning, the Space recipe
 ├── notebooks/  the work in the order it was done
-├── docs/       five documents and the screenshots
+├── docs/       six documents and the screenshots
 ├── tests/      unit, integration, system
 └── var/        everything a run leaves behind, and the Kaggle download
 ```

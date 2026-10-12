@@ -1,6 +1,6 @@
 # Why a service, and where the boundaries are
 
-The project runs as four processes, each kept separate from the others for a reason given
+The project runs as five processes, each kept separate from the others for a reason given
 below. The README covers what the project decides; this page explains why the code is arranged
 as it is, and what each arrangement costs.
 
@@ -17,7 +17,7 @@ scripts/           the entry points: read arguments, call the package, print wha
 ```
 
 The compose file starts five containers: the API, the interface, PostgreSQL, Prometheus and
-Grafana. `infra/` holds all of it.
+Grafana. `infra/` holds their images and provisioning; the compose file sits at the root.
 
 ## Four boundaries worth defending
 
@@ -28,8 +28,7 @@ decision gains.
 
 That choice has a cost: a registry knows which run produced which artefact, and a file does
 not. So the artefact carries `model_manifest.json` beside it, and with its provenance stored
-there the model can be understood without any service. `docs/protocol.md` lists what that file
-holds.
+there the model can be understood without any service. The README lists what that file holds.
 
 **Writing the prediction down is best effort.** Every scored request is inserted into
 PostgreSQL, and a database that does not answer stops nothing. The system tier tests that
