@@ -23,16 +23,16 @@ a measurement, and a real credit policy answers to rules this repository never m
 
 ## The problem
 
-A lender approving a loan makes an asymmetric mistake. Refusing a good applicant costs a
-margin. Approving one who defaults costs the principal. A 0.5 threshold on a probability treats
-the two as equally bad, which optimises for a cost nobody has.
+A lender approving loans can make two mistakes, and they do not cost the same. Refusing a good
+applicant costs a margin. Approving one who defaults costs the principal. A 0.5 threshold on a
+probability treats the two as equally bad, which matches no lender's actual costs.
 
 The data is [Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-risk):
 seven relational tables of loan applications and the applicants' credit history, joined per
 customer. 8 % of them default.
 
-So the model is the easy half. The question this repository is built around is **where to put
-the threshold, and what happens to the answer when the assumption underneath it moves.**
+Fitting the model is the easier part. This repository is mainly about where to put the
+threshold, and how that choice changes when the cost assumption behind it moves.
 
 ## What it does
 
@@ -50,10 +50,10 @@ columns are allowed to be empty.
 <!-- source: docs/images/MANIFEST.json -->
 ![One applicant scored through the documentation page, with the returned probability, the decision and the threshold that produced it](docs/images/api-prediction.png)
 
-A **Streamlit** interface sits on top for people who will not send JSON by hand. Its second
-page reads the log back with **Plotly**: what has been decided lately, at what latency, and how
-the threshold split the traffic. [`docs/interface.md`](docs/interface.md) says what both pages
-show, and how to ask the API the same questions from a terminal.
+A Streamlit interface sits on top for people who will not send JSON by hand. Its second page
+reads the log back with Plotly: what has been decided lately, at what latency, and how the
+threshold split the traffic. [`docs/interface.md`](docs/interface.md) describes both pages and
+shows how to ask the API the same questions from a terminal.
 
 <!-- source: docs/images/MANIFEST.json -->
 ![The scoring page of the interface, with the request body on the left and the returned decision on the right](docs/images/streamlit-scoring.png)
@@ -61,10 +61,9 @@ show, and how to ask the API the same questions from a terminal.
 <!-- source: docs/images/MANIFEST.json -->
 ![The decision log page: four cards over the last two hundred requests, the table itself, and the distribution of the scores](docs/images/prediction-log.png)
 
-**Prometheus** scrapes the API and **Grafana** draws it. Both the data source and the
+Prometheus scrapes the API and Grafana draws the metrics. Both the data source and the
 dashboard are provisioned from `infra/grafana/`, so the dashboard belongs to the repository and
-not to one person's browser. **Evidently** watches the traffic itself, and **Docker** ships all
-of it.
+not to one person's browser. Evidently watches the traffic itself, and Docker ships all of it.
 
 ```mermaid
 flowchart LR
@@ -89,22 +88,22 @@ tuned them. **FastAPI** serves the frozen artefact and **Uvicorn** runs it, with
 behind the prediction log and **SQLAlchemy** mapping it. **SHAP** explains one decision, and
 **ONNX** Runtime was measured against the pipeline and left out of it.
 
-Three choices worth defending:
+Three design choices are worth defending:
 
-**Preprocessing lives inside the pipeline, not before it.** Imputation and scaling are steps
-of the `Pipeline`, fitted inside each fold. `credexp.modeling.pipelines` says what that
-prevents, and it is the reason published scores on this dataset are often optimistic.
+**Preprocessing is part of the pipeline.** Imputation and scaling are steps of the `Pipeline`,
+fitted inside each fold. `credexp.modeling.pipelines` describes the leak this prevents; that
+leak is the reason published scores on this dataset are often optimistic.
 
-**A frozen artefact backs the API, and no registry call.** MLflow tracked the experiments and
-is deliberately absent from the request path; `credexp.serving.model_loader` says what that
-buys and what it costs.
+**The API serves a frozen artefact and never calls the registry.** MLflow tracked the
+experiments and is deliberately kept off the request path; `credexp.serving.model_loader` sets
+out the trade-off.
 
-**The artefact carries a manifest.** `model_manifest.json` is written by the final training and
-read by the loader: the feature columns and their schema version, the threshold and how it was
-chosen, the hyper-parameters and the tuning trial they came from, the imbalance strategy, a
-fingerprint of the training data, and the commit. The hyper-parameters used to be copied into
-the training script by hand, which meant the final model depended on a result no file connected
-it to. They are read from the tracked trials now, and a missing artefact stops the run.
+**The artefact carries a manifest.** The final training writes `model_manifest.json` and the
+loader reads it. It records the feature columns and their schema version, the threshold and how
+it was chosen, the hyper-parameters and the tuning trial they came from, the imbalance strategy,
+a fingerprint of the training data, and the commit. The hyper-parameters were once copied into
+the training script by hand, so the final model depended on a result that no file linked it to.
+The training now reads them from the tracked trials, and a missing artefact stops the run.
 
 ## The result
 
@@ -113,8 +112,8 @@ The threshold is chosen by minimising an expected cost in which one default cost
 what one wrongly refused applicant costs. **The shipped value is 0.49**, and it refuses 27 % of
 n = 30 751 applicants.
 
-A cost per applicant means nothing without something to compare it to, so the trivial policies
-are in the table:
+A cost per applicant only means something next to a reference point, so the table includes the
+trivial policies:
 
 <!-- source: reports/decision/decision_analysis.json -->
 | Policy | n | cost_per_row |
@@ -127,21 +126,21 @@ are in the table:
 > **How to read it.** Each row is a decision policy applied to the same applicants, and
 > `cost_per_row` is what it loses on average per applicant under the assumed prices: one unit
 > for someone wrongly refused, ten for a default let through, nothing for a correct call. Lower
-> is better. The three rows above the model need no model at all, which is what makes the last
-> row's distance from them the measure of what learning bought.
+> is better. The three rows above the model need no model at all, so the gap between them and
+> the last row measures what learning added.
 
-Refusing everyone is a serious policy at this cost ratio, which is exactly why it belongs in
-the table; `credexp.modeling.baselines` says why the three were chosen. The model roughly
+At this cost ratio, refusing everyone is a serious policy, so it has a place in the table;
+`credexp.modeling.baselines` gives the reasons for choosing these three. The model roughly
 halves the cost of the best of them.
 
 <!-- source: reports/decision/decision_analysis.json -->
 **The interval on that cost runs from 0.4721 to 0.5068**, the middle 95 % of n = 1000 bootstrap
-resamples of the holdout. The threshold does not move while the applicants are resampled, and
-`credexp.modeling.sensitivity` says what the alternative would have produced.
+resamples of the holdout. The threshold stays fixed while the applicants are resampled;
+`credexp.modeling.sensitivity` explains what letting it move would have produced.
 
 ### What learning was worth, and what the family was worth
 
-Two questions the cost table above cannot separate: how much of that gain comes from learning
+The cost table above cannot separate two parts of that gain: how much comes from learning
 anything at all, and how much from learning it with trees.
 
 <!-- source: reports/model_comparison.csv -->
@@ -153,20 +152,21 @@ anything at all, and how much from learning it with trees.
 | **lgbm** | | 30 751 | **0.7433** | **0.2324** | **0.5472** |
 
 > **How to read it.** One row per model family, all cross-validated on the same holdout.
-> ROC AUC (area under the receiver operating characteristic curve) answers one question: set a
-> future defaulter beside somebody who repaid, and how often does the model order the pair
-> correctly? It says nothing about where the threshold should sit. PR AUC
-> (area under the precision-recall curve) is the one to read on a population where few people
-> default, because its floor is the default rate itself. `business_cost_per_row` prices the same
-> decisions out of sample, before any threshold has been tuned.
+> ROC AUC (area under the receiver operating characteristic curve) measures how often the model
+> orders a pair correctly when a future defaulter is set beside somebody who repaid. It says
+> nothing about where the threshold should sit. PR AUC (area under the precision-recall curve)
+> is the better guide on a population where few people default, because its floor is the
+> default rate itself. `business_cost_per_row` prices the same decisions out of sample, before
+> any threshold has been tuned.
 
-Learning at all is worth 0.24 per applicant. Choosing gradient-boosted trees over a logistic
-regression is worth 0.015, sixteen times less. Notebook 03 reads the same table and says what
-that ratio means for a feature set of 796 engineered columns.
+Learning anything at all is worth 0.24 per applicant. Choosing gradient-boosted trees over a
+logistic regression is worth 0.015, sixteen times less. Notebook 03 reads the same table and
+discusses what that ratio means for a feature set of 796 engineered columns.
 
-Five-fold cross-validation on the holdout, so the absolute costs sit above the 0.4888 above:
-the frame is a tenth of what the shipped model saw. `uv run python scripts/compare_models.py`
-rebuilds the table, and its header says why that frame.
+These numbers come from five-fold cross-validation on the holdout, a frame a tenth the size of
+what the shipped model saw, so the absolute costs sit above the 0.4888 reported earlier.
+`uv run python scripts/compare_models.py` rebuilds the table, and its header explains the
+choice of frame.
 
 ### What the whole thing rests on
 
@@ -174,20 +174,20 @@ rebuilds the table, and its header says why that frame.
 ![Optimal threshold and cost per applicant against the assumed cost ratio, over n = 9 ratios from one to fifty, each optimised on the same n = 30751 applicants, with the shipped ratio marked](reports/figures/cost_sensitivity.png)
 
 > **How to read it.** The horizontal axis carries the assumption this whole page rests on: how
-> much a default costs relative to a wrongly refused applicant. Two series share it. The blue
-> line, read on the left axis, is the threshold that minimises expected cost at each assumption;
-> the orange line, read on the right axis, is what the resulting decision costs per applicant.
-> The dashed marker is the ratio this repository assumes. The blue line crosses most of its own
-> range, so the assumption decides more than the model does.
+> much a default costs relative to a wrongly refused applicant. Two series share that axis. The
+> blue line, read on the left axis, is the threshold that minimises expected cost at each
+> assumption; the orange line, read on the right axis, is what the resulting decision costs per
+> applicant. The dashed marker is the ratio this repository assumes. The blue line covers most
+> of its own range, which means the assumption weighs more on the decision than the model does.
 
 <!-- source: reports/decision/decision_analysis.json -->
-Ten to one is an assumption. It was not measured, and over the n = 9 ratios swept the optimal
-threshold runs from **0.89** if a default costs the same as a wrongful refusal to **0.18** if it
-costs fifty times as much. The decision sweeps the entire usable range on the strength of that
-one number.
+The ten-to-one ratio is an assumption and was not measured. Over the n = 9 ratios swept, the
+optimal threshold runs from **0.89** if a default costs the same as a wrongful refusal to
+**0.18** if it costs fifty times as much. The decision sweeps the entire usable range on the
+strength of that one number.
 
-This is the figure to look at before any other. Everything above is conditional on a ratio that
-whoever bears the loss would have to supply, and the honest form of the result is "0.4888 per
+Read this figure before any other on the page. Everything above depends on a ratio that
+whoever bears the loss would have to supply, so the result should be stated as "0.4888 per
 applicant, *given* ten to one".
 
 ### Who it refuses
@@ -212,10 +212,9 @@ applicant, *given* ten to one".
 
 <!-- source: reports/decision/decision_analysis.json -->
 Over n = 4349 applicants under thirty the refusal rate is **0.4842**; over n = 3641 applicants
-of sixty and over it is **0.1247**. Part of that follows real risk, a default rate of 0.1122
-against 0.0505. Not all of it does, and the mirror image is the uncomfortable half: among
-applicants over sixty the model misses **0.587** of those who default. Low refusal and poor
-detection are the same fact seen twice.
+of sixty and over it is **0.1247**. Part of that gap follows real risk, a default rate of 0.1122
+against 0.0505, but not all of it. Among applicants over sixty the model misses **0.587** of
+those who default: low refusal and poor detection are the same fact seen twice.
 
 <!-- source: reports/figures/MANIFEST.json -->
 ![Refusal rate by age band at the shipped threshold, over n = 30751 applicants, with the population of each band written under its bar](reports/figures/fairness_age.png)
@@ -226,10 +225,11 @@ detection are the same fact seen twice.
 > be. Set each bar against the same band's default rate in the table above: the distance between
 > the two is what the threshold adds to the risk the group already carries.
 
-Nothing here is corrected. Adjusting a credit model for fairness commits to a definition of
-fairness, and several reasonable definitions are mutually exclusive: equal refusal rates and
-equal error rates cannot both hold when the base rates differ. That is a decision for whoever
-owns the lending policy, and taking it in passing would be worse than naming it.
+Nothing here is corrected for these gaps. Adjusting a credit model for fairness commits to a
+definition of fairness, and several reasonable definitions are mutually exclusive: equal
+refusal rates and equal error rates cannot both hold when the base rates differ. Choosing one is
+a decision for whoever owns the lending policy, and making it in passing here would be worse
+than naming it.
 
 `uv run python scripts/decision_analysis.py` reproduces every number in this section, and they
 land in `reports/decision/`.
@@ -245,18 +245,16 @@ land in `reports/decision/`.
 > high or low. SHAP (SHapley Additive exPlanations) splits a single prediction into one
 > contribution per feature, so a wide row is a feature that decides a great deal for somebody.
 
-Three external credit-bureau scores carry most of the decision, and after them comes the loan's
-own arithmetic: the annuity, the payment rate, the goods price. That ordering is worth having
-for two reasons.
+Three external credit-bureau scores carry most of the decision, followed by the loan's own
+arithmetic: the annuity, the payment rate, the goods price.
 
-The first is that **no single feature dwarfs the rest**, which is the smell that usually means a
-leak on this dataset. Had one column separated defaulters on its own, it would have been a
-symptom of the outcome rather than a predictor of it.
+No single feature dwarfs the rest. On this dataset, one dominant feature is the usual sign of a
+leak: had one column separated defaulters on its own, it would have been a symptom of the
+outcome rather than a predictor of it.
 
-The second is less comfortable: **`CODE_GENDER` is the fourth strongest feature.** The refusal
-gap in the table above is not an accident of correlation, it is something the model reads
-directly. Nothing is corrected, for the reasons given there, and the figure is what makes the
-gap traceable.
+**`CODE_GENDER` is the fourth strongest feature.** The model reads that column directly, so
+the refusal gap between men and women in the table above is not an accident of correlation. It
+is left uncorrected for the reasons given there, and this figure makes the gap traceable.
 
 A single applicant decomposes the same way:
 
@@ -272,32 +270,33 @@ A single applicant decomposes the same way:
 <!-- source: reports/explainability/explainability_meta.json -->
 The model's average output is a log-odds of **-0.753**, computed over the n = 5000 background
 sample; the applicant drawn above is the highest-risk of the n = 1500 explained. Two bureau
-scores near zero carry most of the distance between the two. That is the shape of the
-explanation a refused applicant is owed.
+scores near zero account for most of the distance between the two. A refused applicant is owed
+an explanation of this kind.
 
 `uv run python scripts/explainability.py` regenerates all four figures from the frozen artefact.
 
 ## Why these numbers can be believed
 
-Four things about them were checked rather than asserted, and two of the four came back wrong.
+Four things about them were checked, and two of the four came back wrong.
 
 <!-- source: reports/decision/decision_analysis.json -->
 **The threshold used to be tuned and scored on the same data.** Measured on the two halves of
 the n = 30751 holdout, that shortcut is worth **0.0029** per applicant against a cost near 0.49.
-Real, small, and free to remove. `credexp.modeling.train` holds the rule that replaced it.
+The effect is real but small, and removing it cost nothing. `credexp.modeling.train` holds the
+rule that replaced it.
 
 <!-- source: reports/decision/decision_analysis.json -->
 **The shipped threshold was calibrated on a model trained on part of the development set and
 then applied to one refit on all of it.** Against the n = 30751 holdout's own optimum of
-**0.48**, the shipped **0.49** costs **0.0028** more per applicant. The compromise survives
-measurement, which is more than an argument for it would.
+**0.48**, the shipped **0.49** costs **0.0028** more per applicant. The compromise holds up when
+measured, which is better evidence than any argument for it.
 
 <!-- source: reports/performance/calibration.json -->
-**The threshold is a decision, not a coincidence.** Reselected on n = 25 resamples of half the
+**The threshold is stable under resampling.** Reselected on n = 25 resamples of half the
 holdout, it lands at a median of 0.50 with a 95 % interval of **[0.47, 0.544]**, and the shipped
-value sits inside it. Worth checking precisely because it could have gone the other way: a
-threshold whose interval spanned 0.3 to 0.7 would be one draw among many presented as a
-decision, and 27 % of applicants are refused at the current one.
+value sits inside it. The check could have failed: a threshold whose interval spanned 0.3 to
+0.7 would be one draw among many presented as a decision, and the current one refuses 27 % of
+applicants.
 
 **The returned probability is not a probability.** Measured on the n = 30 751 holdout:
 
@@ -345,18 +344,18 @@ reason [`docs/data-source.md`](docs/data-source.md) states in full: each one loo
 applicant's own past. Nothing is aggregated across applicants, and nothing reaches forward in
 time.
 
-Two places would need care if this were extended. **A feature built from an outcome**: nothing
-here touches `TARGET` outside the label itself, but a "number of previous defaults" aggregate
-drawn from the wrong table would, and it would look like an ordinary count. And **preprocessing
-fit outside the fold**, handled by construction above, worth naming because it is the leak that
-most often survives a review here.
+Two places would need care if this were extended. The first is a feature built from an
+outcome: nothing here touches `TARGET` outside the label itself, but a "number of previous
+defaults" aggregate drawn from the wrong table would, and it would look like an ordinary count.
+The second is preprocessing fitted outside the fold. The pipeline rules it out by construction,
+as described above; it is listed because it is the leak that most often survives a review here.
 
 The check that would catch a regression is a smell more than a test: one feature whose
 importance dwarfs every other. None does here.
 
 ### What the tests assert
 
-Not that the code runs. That what is published is true:
+Beyond running the code, the tests check that what is published is true:
 
 - the decision tables under `reports/decision/` re-derive from each other: the markdown a
   reader sees is what the renderer produces from the JSON beside it, byte for byte;
@@ -368,9 +367,9 @@ Not that the code runs. That what is published is true:
 - a request that names two features is scored on all 796, in the fitted order, and a frame
   whose columns were permuted is refused rather than scored.
 
-193 tests in three tiers, read by `pytest`: unit, integration, and one outer tier that starts
-`uvicorn` in its own process and questions it over HTTP. That tier is what found a service
-taking two minutes to answer when PostgreSQL was unreachable.
+`pytest` runs 193 tests in three tiers: unit, integration, and one outer tier that starts
+`uvicorn` in its own process and questions it over HTTP. That outer tier found a service taking
+two minutes to answer when PostgreSQL was unreachable.
 
 ## Running it
 
@@ -388,18 +387,18 @@ give it traffic:
 uv run python scripts/send_sample_traffic.py --requests 300
 ```
 
-Drift is measured on the **raw API input** and not on the engineered columns.
-`credexp.monitoring.drift` says what that level catches, and
-[`docs/operations.md`](docs/operations.md) says what the two frames are.
+Drift is measured on the raw API input and not on the engineered columns.
+`credexp.monitoring.drift` explains what that level catches, and
+[`docs/operations.md`](docs/operations.md) describes the two frames.
 
 ```bash
 uv run python scripts/build_drift_reference.py   # writes var/data/processed/reference.parquet
 uv run python scripts/monitoring_drift.py        # writes reports/monitoring/
 ```
 
-Only the first of the two is watched here, and the report is generated on demand. A scheduled
-job with no one on the other end of it eventually turns red on its own, and is then trusted less
-than no job at all.
+Only the first of the two is watched here, and the report is generated on demand. There is no
+scheduled job, because a job that no one watches eventually turns red on its own and is then
+trusted less than having no job at all.
 
 <!-- source: docs/images/MANIFEST.json -->
 ![The Evidently drift report over the reference and the logged traffic, with the share of columns it flags at the top](docs/images/drift-report.png)
@@ -408,10 +407,10 @@ The decision analysis needs the holdout, which is **not versioned**. Rebuild it 
 Kaggle tables with `scripts/build_features.py`, then run `scripts/train_final.py` and
 `scripts/decision_analysis.py`.
 
-Six documents stand behind this page. [`architecture`](docs/architecture.md) draws the
-boundaries. [`protocol`](docs/protocol.md) measures. [`data-source`](docs/data-source.md) says
-what may be published. [`DB`](docs/DB.md) is the log's schema.
-[`interface`](docs/interface.md) covers both pages and the `curl` calls under them.
+Six documents go into more detail. [`architecture`](docs/architecture.md) describes the
+boundaries, [`protocol`](docs/protocol.md) how each number was measured, and
+[`data-source`](docs/data-source.md) what may be published. [`DB`](docs/DB.md) gives the log's
+schema, [`interface`](docs/interface.md) covers both pages and the `curl` calls under them, and
 [`operations`](docs/operations.md) is the runbook. The seven notebooks under
 [`notebooks/`](notebooks/) run in the order the work was done: the join, the exploration, the
 family comparison, the tuning study, the explanations, the drift watch, the benchmarks.
@@ -433,8 +432,8 @@ family comparison, the tuning study, the explanations, the drift watch, the benc
 ## What this does not prove
 
 **The cost ratio is assumed, not measured.** Ten to one came from the domain, not from this
-lender's books. Everything downstream of it moves with it, and the sensitivity figure is how
-much.
+lender's books. Everything downstream of it moves with it, and the sensitivity figure shows by
+how much.
 
 **The probability scale is wrong, and knowingly so.** See above. The decision is not affected;
 any downstream use of `proba_default` as a probability would be.
@@ -446,9 +445,9 @@ applicants, a tenth of the development set, because that is the only frame this 
 put in front of a reader. The ordering is stable across folds; the absolute costs are not the
 shipped ones.
 
-**No drift has actually been observed.** The traffic the monitor reads is the holdout replayed
-through the API, so the comparison is a sample of the training population against a sample of
-itself. Every part of the mechanism runs; nothing has yet moved under it.
+**No drift has been observed.** The traffic the monitor reads is the holdout replayed through
+the API, so the comparison is a sample of the training population against a sample of itself.
+The mechanism runs end to end, but nothing has yet changed in the data it watches.
 
 ## Licence and data
 

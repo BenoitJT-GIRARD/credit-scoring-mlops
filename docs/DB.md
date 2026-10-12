@@ -1,8 +1,8 @@
 # The one table the service writes
 
-PostgreSQL holds a single table, and it is a log: one row per scored request, never updated
-and never deleted. Without it nothing records who was scored, and nothing can say whether
-today's applicants resemble the ones the model learned from.
+PostgreSQL holds a single table, a log with one row per scored request, never updated and
+never deleted. Without it there would be no record of who was scored, and no way to tell
+whether today's applicants resemble the ones the model learned from.
 
 ## `predictions`
 
@@ -26,30 +26,29 @@ today's applicants resemble the ones the model learned from.
 
 ## Four decisions in that table
 
-**The threshold travels with the score.** A probability without the operating point that
-turned it into a decision records nothing: the threshold moves between model versions, and
-this log is read months later.
+**The threshold travels with the score.** A probability stored without the operating point
+that turned it into a decision cannot be interpreted later: the threshold moves between model
+versions, and this log is read months later.
 
-**The score and the decision are nullable.** `credexp.db.models` says what a zero written in
-their place would do to every average computed from this table, and
-`tests/unit/db/test_crud.py` is what keeps it from happening again.
+**The score and the decision are nullable.** `credexp.db.models` explains what a zero written
+in their place would do to every average computed from this table, and
+`tests/unit/db/test_crud.py` keeps it from happening again.
 
 **The failure has a kind as well as a message.** `failure_kind` is a closed vocabulary, so
-failures can be counted; `error_message` is prose, so one can be read. A log with only the
-second is a log nobody can aggregate.
+failures can be counted; `error_message` is prose, so one can be read.
 
-**The payload is stored whole, as JSON.** `credexp.db.crud` says why a projection onto
-today's columns would not do. The drift monitor is the consumer that proves the point: it
-reads `input_payload` and no engineered column.
+**The payload is stored whole, as JSON.** `credexp.db.crud` explains why a projection onto
+today's columns would not be enough. The drift monitor depends on this: it reads
+`input_payload` and no engineered column.
 
 ## How it is created, and what happens when it is not there
 
 `scripts/init_db.py`, or the application's own startup, calls `Base.metadata.create_all`. It
 is idempotent.
 
-Writing to the log is **best effort**: a database that does not answer costs the caller a
-warning and nothing else. Opening the connection has a three-second deadline,
-`DB_CONNECT_TIMEOUT`, and `credexp.db.session` says what the absence of one cost.
+Writing to the log is best effort: a database that does not answer costs the caller a warning
+and nothing else. Opening the connection has a three-second deadline, `DB_CONNECT_TIMEOUT`,
+and `credexp.db.session` explains what running without one used to cost.
 `tests/system/test_service_end_to_end.py` points the service at a closed port and asks it to
 score.
 

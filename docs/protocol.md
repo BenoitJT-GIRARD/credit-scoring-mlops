@@ -1,6 +1,6 @@
 # How each number was measured
 
-Every label of every published table is defined in `metrics.yaml`. What follows is the
+Every label of every published table is defined in `metrics.yaml`. This page sets out the
 protocol behind those tables: which applicants, which split, and what each number may be read
 as claiming.
 
@@ -29,8 +29,9 @@ published below is measured on the development set.
 
 One wrongly refused applicant costs 1. One missed default costs 10. Every cost published is
 the average of that quantity per applicant scored. It is not money: nobody measured what a
-default costs this lender, and `reports/figures/cost_sensitivity.png` is what the assumption
-moves. The honest form of every result on this page ends with « given ten to one ».
+default costs this lender, and `reports/figures/cost_sensitivity.png` shows what changes when
+the assumption moves. Every result on this page should be read as ending with
+« given ten to one ».
 
 ## How the threshold is chosen
 
@@ -57,15 +58,16 @@ measured on the two halves of the holdout.
 
 The threshold is held fixed while the cost is resampled, on purpose: resampling and
 re-optimising at once mixes two sources of variation into an interval nobody can interpret.
-The threshold's own spread is measured separately, and that is the pair to read together.
+The threshold's own spread is measured separately, and the two intervals are meant to be read
+together.
 
 ## The family comparison
 
 `scripts/compare_models.py` cross-validates four families on five stratified folds of the
 holdout: two trivial baselines, a logistic regression, and the gradient-boosted trees that
 are shipped. It runs on the holdout because the development set is not redistributable, so
-the absolute costs sit above the shipped 0.4888. What survives the change of sample is the
-ordering, and that is what a family comparison is for.
+the absolute costs sit above the shipped 0.4888. The ordering survives the change of sample,
+and the ordering is what a family comparison is meant to establish.
 
 <!-- source: reports/figures/MANIFEST.json -->
 ![Total gain per feature over the n = 796 columns, top 30, as the fitted trees split on them](../reports/figures/feature_importance_gain.png)
@@ -73,13 +75,11 @@ ordering, and that is what a family comparison is for.
 > **How to read it.** One row per column of the feature set, the thirty largest of those the
 > model was fitted on. The length is total gain, which sums how much every split on that column
 > improved the trees that used it, so the chart describes the fitted model and never the
-> applicants. Two columns carrying the same information divide this total between them in a way
-> no reading can undo.
+> applicants. Two columns carrying the same information split this total between them
+> arbitrarily, and no reading of the chart can recover how.
 
-Gain is a property of the fitted trees rather than of the applicants: two correlated columns
-share the credit between them arbitrarily. The SHAP figures in the README answer the other
-question, on the applicants themselves, and the lowest-risk applicant of the sample decomposes
-the same way as the highest:
+The SHAP figures in the README describe the applicants themselves, and the lowest-risk
+applicant of the sample decomposes the same way as the highest:
 
 <!-- source: reports/figures/MANIFEST.json -->
 ![One applicant of the n = 1500 explained, the lowest-risk of them, from the model's average output down to this applicant's score](../reports/figures/shap_waterfall_low_risk.png)
@@ -92,8 +92,8 @@ the same way as the highest:
 
 ## What a retraining loop would need
 
-Nothing here retrains, and the three things missing are worth naming rather than half-built:
-a labelled outcome arriving months after the decision, a calibrator fitted during training on
-the validation split with the threshold mapped through it, and a drift signal on the
-engineered features and not only on the raw payloads. `docs/operations.md` says what is
-watched today.
+Nothing here retrains. A retraining loop would need three things that are missing: a labelled
+outcome arriving months after the decision, a calibrator fitted during training on the
+validation split with the threshold mapped through it, and a drift signal on the engineered
+features and not only on the raw payloads. `docs/operations.md` describes what is watched
+today.

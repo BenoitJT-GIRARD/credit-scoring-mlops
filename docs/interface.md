@@ -1,9 +1,9 @@
 # The two pages, and the API underneath them
 
-A form that scores one applicant, and a log that says what the service has been deciding.
-Both are Streamlit, both hold no logic of their own, and both read the palette the figures of
-the README use. `docs/architecture.md` says why the boundary sits where it does; this page
-says what the two show and how to talk to the API without them.
+The interface has two pages: a form that scores one applicant, and a log of what the service
+has been deciding. Both are Streamlit pages with no logic of their own, and they use the same
+palette as the README's figures. `docs/architecture.md` explains why the boundary sits where it
+does; this page covers what the two pages show and how to talk to the API without them.
 
 ```bash
 docker compose up -d                                   # both pages, on :8501
@@ -23,9 +23,9 @@ uv run streamlit run src/credexp/app/Overview.py       # or locally, without Doc
 | Latency | what the whole round trip cost, in milliseconds |
 | The full response | everything the API returned, including the model version |
 
-Three failures are told apart, because they need three different answers from the reader: a
-body that is not valid JSON, a service that refused the request and explained why, and a
-service that is not running at that address. `credexp.app.service` is where that happens, and
+The page tells three failures apart, because they need three different answers from the
+reader: a body that is not valid JSON, a service that refused the request and explained why,
+and a service that is not running at that address. `credexp.app.service` handles this, and
 `tests/unit/app/test_service.py` exercises all three without a browser.
 
 ## Recent decisions
@@ -41,7 +41,7 @@ service that is not running at that address. `credexp.app.service` is where that
 | Latency, request by request | whether the service is slowing down |
 | How the threshold split the traffic | the acceptance rate, which is what the business side watches |
 
-Three rules the charts follow, each of them stated in `credexp.app.charts` and pinned in
+The charts follow three rules, each stated in `credexp.app.charts` and pinned in
 `tests/unit/app/test_charts.py`. The probability axis is fixed from 0 to 1. The threshold is
 drawn on it, dashed, in the palette's reserved colour. And the two outcomes are named in words,
 so that no colour scale has to carry the difference between accepted and refused.
@@ -49,7 +49,7 @@ so that no colour scale has to carry the difference between accepted and refused
 ## Talking to the API directly
 
 The OpenAPI page at `/docs` is generated from the Pydantic models the service validates
-against, so it is never out of date. What follows is the same thing from a terminal.
+against, so it is never out of date. The calls below do the same from a terminal.
 
 One applicant:
 
@@ -82,10 +82,10 @@ curl -s http://127.0.0.1:8000/ready     # a model is loaded and it can predict
 
 A feature left out of the payload is imputed by the pipeline, so a short request is a valid
 one. A field name that is not a feature is refused with a 422, and `credexp.serving.schemas`
-says what accepting it would mean for the applicant being scored.
+explains what accepting it would mean for the applicant being scored.
 
 ## The theme belongs to the repository
 
-`.streamlit/config.toml` carries the page's four colours, and the theme test is what keeps
-that file and the figures' module on the same four. Its own docstring says what is
-missing from a page that ships without it.
+`.streamlit/config.toml` carries the page's four colours, and the theme test keeps that file
+and the figures' module on the same four. The test's docstring explains what is missing from a
+page that ships without it.

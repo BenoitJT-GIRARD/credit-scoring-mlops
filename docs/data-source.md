@@ -1,6 +1,6 @@
 # Where the data comes from, and what may be redistributed
 
-Nothing of it is in this repository, and the reason is a licence rather than a size.
+None of it is in this repository, because its licence does not allow redistribution.
 
 ## The source
 
@@ -30,7 +30,7 @@ file it could not find.
 | The tuning study | `reports/tuning/optuna_trials.csv` | hyper-parameters and their scores |
 
 An aggregate over 30 751 applicants identifies nobody, and a fitted model is this
-repository's own work. The line is drawn at rows.
+repository's own work, so both are published; individual rows are not.
 
 ## The seven tables, and what each contributes
 
@@ -45,10 +45,10 @@ repository's own work. The line is drawn at rows.
 | `credit_card_balance` | one month of one earlier card | drawings, and how the balance moved |
 
 `src/credexp/data/build_features.py` joins them into 796 columns, one row per applicant.
-**Each aggregate looks only at the applicant's own past**, keyed on `SK_ID_CURR`, over tables
-that record what happened before the application was made. Nothing is pooled between applicants
-and nothing is taken from after the decision. That property is what the README's leak section
-rests on, and `tests/unit/data/test_build_features.py` pins the decisions the join makes.
+Each aggregate looks only at the applicant's own past, keyed on `SK_ID_CURR`, over tables that
+record what happened before the application was made. Nothing is pooled between applicants and
+nothing is taken from after the decision. The README's leak section rests on this property, and
+`tests/unit/data/test_build_features.py` pins the decisions the join makes.
 
 ## Where the files go
 
@@ -58,8 +58,8 @@ var/data/interim/     the merged tables, between the CSVs and the matrix
 var/data/processed/   features.parquet, api_holdout.parquet, reference.parquet
 ```
 
-Under `var/` and not under `data/`: `credexp.utils.paths` gives the reason, and it is the
-only module of the project that resolves a path at all.
+The files sit under `var/` rather than `data/`. `credexp.utils.paths` gives the reason, and it
+is the only module of the project that resolves a path at all.
 
 To rebuild everything from the download:
 
@@ -69,12 +69,13 @@ uv run python scripts/train_final.py        # models/, from the tracked tuning t
 uv run python scripts/decision_analysis.py  # reports/decision/
 ```
 
-`build_features.py` fails by name when a table is missing: a feature matrix built from six of
-the seven tables is silently a hundred columns short, and a model trains on it without
+`build_features.py` fails and names the table when one is missing: a feature matrix built from
+six of the seven tables is silently a hundred columns short, and a model trains on it without
 complaint.
 
 ## One thing the sentinel hides
 
 `DAYS_EMPLOYED` carries 365 243 for applicants who have never been employed, which is a
 thousand years in a column where every real value is negative. Read as a number it moves
-every statistic that touches it. It becomes missing during the build, and a test asserts it.
+every statistic that touches it. The build turns it into a missing value, and a test checks
+that it does.
