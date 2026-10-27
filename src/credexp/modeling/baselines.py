@@ -1,7 +1,9 @@
 """What it costs to decide without a model.
 
 On a sample with 8 % defaults and a false negative worth ten false positives, refusing
-everyone is not an absurd policy. It is the floor the model has to beat to justify itself.
+everyone is not an absurd policy, and it is one of the three references returned here. At
+that default rate, accepting everyone costs less than refusing everyone. The cheapest of
+the three is the cost the model has to beat to justify itself.
 """
 
 from __future__ import annotations

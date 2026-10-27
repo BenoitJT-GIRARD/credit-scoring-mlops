@@ -54,8 +54,11 @@ OUT_JSON = PERFORMANCE_DIR / "calibration.json"
 OUT_FIGURE = FIGURES_DIR / "calibration.png"
 
 
-def _plot(curves: dict[str, pd.DataFrame], summary: dict, n_holdout: int, path: Path) -> None:
+def _plot(curves: dict[str, pd.DataFrame], summary: dict, n_scored: int, path: Path) -> None:
     """Observed default rate against predicted probability, with the diagonal to read it by.
+
+    `n_scored` is the number of applicants the curves are drawn on, the evaluation half of
+    the holdout, and it is the count printed under the figure.
 
     The diagonal is the reference and is dashed: a point above it is a model that promised
     less risk than it met. This model sits well below it, which is what the README means by
@@ -85,7 +88,7 @@ def _plot(curves: dict[str, pd.DataFrame], summary: dict, n_holdout: int, path: 
     save_figure(
         figure,
         path,
-        n={"applicants": n_holdout, "bins": len(next(iter(curves.values())))},
+        n={"applicants": n_scored, "bins": len(next(iter(curves.values())))},
         source="scripts/calibration_report.py",
     )
     close(figure)
@@ -131,7 +134,7 @@ def main() -> None:
         "raw": reliability(y[test_idx], scores[test_idx]),
         "isotonic": reliability(y[test_idx], recalibrated),
     }
-    _plot(curves, summary, len(y), OUT_FIGURE)
+    _plot(curves, summary, len(test_idx), OUT_FIGURE)
 
     OUT_JSON.parent.mkdir(parents=True, exist_ok=True)
     OUT_JSON.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

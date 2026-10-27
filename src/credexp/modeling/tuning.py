@@ -2,6 +2,10 @@
 
 Tuning for AUC and then cutting at a threshold optimises for one thing and decides another.
 The objective here is the cost the threshold will actually be chosen against.
+
+Within each fold, the objective chooses the threshold on the validation rows and then
+prices it on those same rows. `credexp.modeling.threshold.split_threshold_cost` measures
+the optimism this adds to a cost.
 """
 
 from __future__ import annotations

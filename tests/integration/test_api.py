@@ -67,7 +67,7 @@ def test_model_info_describes_the_loaded_model(served) -> None:
 
 
 def test_a_partial_payload_is_scored_on_the_full_column_order(served, shipped_bundle) -> None:
-    """Two features in, 796 columns out, in the order the pipeline was fitted on.
+    """Twelve features in, 796 columns out, in the order the pipeline was fitted on.
 
     `models/feature_columns.json` is what `_build_input_dataframe` reads to place what the
     caller sent and leave the rest to the imputer. The second half of the test is the refusal:

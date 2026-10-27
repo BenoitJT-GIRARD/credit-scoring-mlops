@@ -1,8 +1,11 @@
 """Feature importance and SHAP figures for the model that is actually served.
 
-By default this reads the frozen artefact and the scoring holdout, which is what a reader
-has: the MLflow registry is a training-time convenience and is not shipped. Pass
-``--from-registry`` to explain the latest registered version instead.
+By default this reads the frozen artefact, and explains it on the training matrix when that
+matrix has been rebuilt, or on the scoring holdout otherwise. The MLflow registry is a
+training-time convenience and is not shipped. Pass ``--from-registry`` to explain the latest
+registered version instead.
+
+The figures go to ``reports/figures/``, and ``--out-dir`` receives the metadata file only.
 """
 
 from __future__ import annotations
@@ -19,7 +22,7 @@ from credexp.modeling.explainability import (
     run_explainability,
     split_X_y_from_features,
 )
-from credexp.utils import EXPLAINABILITY_DIR, MLFLOW_DB_PATH, PIPELINE_PATH
+from credexp.utils import EXPLAINABILITY_DIR, FIGURES_DIR, MLFLOW_DB_PATH, PIPELINE_PATH
 
 
 def load_from_artifact() -> tuple[object, str]:
@@ -109,7 +112,7 @@ def main() -> None:
     print(f"model version: {version}")
     for key, value in meta.items():
         print(f"  {key}: {value}")
-    print("figures in:", args.out_dir / "figures")
+    print("figures in:", FIGURES_DIR)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,8 @@
 """Search LightGBM's hyper-parameters against the business cost, and record the trials.
 
-`train_final.py` reads the best trial back out. Tuning for a ranking metric and then
-choosing a threshold optimises two different things in sequence.
+The trials go to `reports/tuning/optuna_trials.csv`, the file `train_final.py` reads the
+best trial back out of. Tuning for a ranking metric and then choosing a threshold optimises
+two different things in sequence.
 """
 
 from __future__ import annotations
@@ -13,6 +14,11 @@ import mlflow
 from credexp.config import settings
 from credexp.modeling.dataset import load_features
 from credexp.modeling.tuning import tune_lgbm_business_cost
+from credexp.utils import TUNING_DIR
+
+#: Where the trials are written. `train_final.py` reads its hyper-parameters from this
+#: same path, so a new study replaces the trials the next final training uses.
+TRIALS_PATH = TUNING_DIR / "optuna_trials.csv"
 
 
 def main() -> None:
@@ -47,9 +53,9 @@ def main() -> None:
 
         # save study trials
         df_trials = study.trials_dataframe()
-        out = "optuna_trials.csv"
-        df_trials.to_csv(out, index=False)
-        mlflow.log_artifact(out)
+        TRIALS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        df_trials.to_csv(TRIALS_PATH, index=False)
+        mlflow.log_artifact(str(TRIALS_PATH))
 
         print("Best value (business cost):", study.best_value)
         print("Best params:", study.best_params)

@@ -77,7 +77,14 @@ def _load_threshold() -> float:
         payload = json.loads(threshold_path.read_text(encoding="utf-8"))
         return float(payload["threshold"])
 
-    return float(os.getenv("DEFAULT_THRESHOLD", "0.5"))
+    # The service still starts, and decides at an operating point that no file records.
+    # The warning puts that in the log, as the registry fallback below does for the model.
+    fallback = float(os.getenv("DEFAULT_THRESHOLD", "0.5"))
+    log.warning(
+        "threshold_file_missing",
+        extra={"searched": str(_model_dir() / "threshold.json"), "threshold": fallback},
+    )
+    return fallback
 
 
 def _load_feature_columns(pipe: object | None = None) -> list[str]:

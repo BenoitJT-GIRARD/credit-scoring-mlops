@@ -86,8 +86,8 @@ def _plot_sensitivity(
 def _plot_fairness(rows: list[dict], title: str, n_holdout: int, path: Path) -> None:
     """Refusal rate per group, with the population of each written under its bar.
 
-    A rate without its group size is a bar a reader cannot weigh, and these groups differ
-    by a factor of five.
+    A rate without its group size is a bar a reader cannot weigh. On the holdout, the largest
+    group is up to 2.2 times the size of the smallest.
     """
     apply_style()
     fig, ax = plt.subplots()
@@ -105,7 +105,7 @@ def _plot_fairness(rows: list[dict], title: str, n_holdout: int, path: Path) -> 
         path,
         n={"applicants": n_holdout, "groups": len(rows)},
         source=SOURCE,
-        note="the same threshold applied to every group; 95 % Wilson interval on each rate",
+        note="the same threshold applied to every group",
     )
     close(fig)
 

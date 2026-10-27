@@ -17,8 +17,9 @@ st.set_page_config(page_title="Credit scoring", page_icon="💳", layout="wide")
 
 st.title("Recent decisions")
 st.write(
-    "Every call to `/predict` writes a row to PostgreSQL: the score, the decision, the "
-    f"model version that produced it, and how long it took. This page reads the last "
+    "The service tries to write a row to PostgreSQL for every call to `/predict`: the score, "
+    "the decision, the model version that produced it, and how long it took. This page reads "
+    f"the last "
     f"{DEFAULT_LIMIT}."
 )
 

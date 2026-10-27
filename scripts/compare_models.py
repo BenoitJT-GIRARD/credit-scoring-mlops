@@ -5,9 +5,10 @@ trivial baselines and against nothing that learns. The comparison lived in an ML
 that is not in the repository and is gone, so the numbers it produced could be read in a
 notebook output and nowhere else.
 
-This runs it again on the one frame a reader can be shown: the 30 751-applicant holdout, with
-the same 796 engineered columns the pipeline was fitted on. It is a tenth of what the shipped
-model saw, so the *absolute* scores here are higher than the published ones. Orderings survive
+This runs it again on the 30 751-applicant holdout, which the decision analysis and the
+calibration report read as well, with the same 796 engineered columns the pipeline was
+fitted on. The holdout holds 10 % of the labelled rows and the shipped model trained on the
+other 90 %, so the *absolute* costs here are higher than the published ones. Orderings survive
 a change of sample, and an ordering is what a family comparison is for.
 
     uv run python scripts/compare_models.py
@@ -70,7 +71,10 @@ def main() -> int:
     arguments = parser.parse_args()
 
     if not HOLDOUT_PATH.is_file():
-        raise SystemExit(f"{HOLDOUT_PATH} is missing — run scripts/build_features.py first")
+        raise SystemExit(
+            f"{HOLDOUT_PATH} is missing — run scripts/build_features.py, then "
+            "scripts/train_final.py, which writes it"
+        )
 
     frame = pd.read_parquet(HOLDOUT_PATH)
     if arguments.rows:

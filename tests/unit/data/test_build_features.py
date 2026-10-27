@@ -78,7 +78,7 @@ def test_the_encoder_keeps_a_column_for_the_missing_category() -> None:
 
 
 def test_a_missing_raw_table_is_named_rather_than_discovered_later(tmp_path: Path) -> None:
-    """The defect it replaces: a matrix a hundred columns short, trained on in silence."""
+    """Every missing file is named at once, before the first table is read."""
     with pytest.raises(FileNotFoundError) as refusal:
         _check_raw_files(tmp_path)
 

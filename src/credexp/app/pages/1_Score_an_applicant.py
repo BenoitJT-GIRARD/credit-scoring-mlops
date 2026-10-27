@@ -36,7 +36,9 @@ if st.button("Score this applicant", type="primary"):
         st.stop()
 
     data = result.body
-    st.success("Scored, and written to the prediction log.")
+    # The API writes the log on a best-effort basis and does not report whether the write
+    # succeeded, so the page cannot say that it did.
+    st.success("Scored. The service also tries to write this request to the prediction log.")
     left, middle, right = st.columns(3)
     left.metric("Probability of default", f"{data['proba_default']:.3f}")
     middle.metric("Decision", "refuse" if data["decision"] else "accept")

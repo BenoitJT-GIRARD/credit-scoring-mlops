@@ -72,6 +72,11 @@ perf = [
 ]
 serve = [
     "fastapi>=0.129.0",
+    # The interface calls the API with httpx and draws the decision log with Plotly. Both
+    # were reached only through other groups (`dev`, and Evidently in `mlops`), and the API
+    # image, which the interface also runs in, installs neither group.
+    "httpx>=0.28.1",
+    "plotly>=5.24.1",
     "pydantic>=2.12.5",
     "streamlit>=1.56.0,<2.0",
     "uvicorn[standard]>=0.41.0",

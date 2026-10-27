@@ -19,7 +19,7 @@ def raw_dir() -> Path:
 
 
 def interim_dir() -> Path:
-    """The merged tables, between the raw CSVs and the feature frame."""
+    """A directory declared for intermediate tables. No script of this repository writes to it."""
     return INTERIM_DIR
 
 

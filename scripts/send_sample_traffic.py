@@ -78,7 +78,7 @@ def main() -> None:
     if not args.holdout.exists():
         raise SystemExit(
             f"{args.holdout} is missing. Rebuild it from the raw Kaggle tables with "
-            "scripts/build_features.py."
+            "scripts/build_features.py, then scripts/train_final.py, which writes it."
         )
 
     frame = pd.read_parquet(args.holdout)

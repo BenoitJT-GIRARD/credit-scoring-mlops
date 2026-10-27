@@ -72,9 +72,10 @@ def calibrate_isotonic(y_val: np.ndarray, p_val: np.ndarray):
 
     Isotonic rather than Platt: it makes no assumption about the shape of the distortion,
     which matters because a gradient-boosted model's miscalibration is rarely a sigmoid.
-    Being monotone, it cannot change the ranking — so ROC AUC is untouched by construction
-    and only the scale moves. That is the whole point: if a recalibrated model scored
-    differently on AUC, something other than calibration would have happened.
+    Being monotone, it never reverses the order of two applicants. It does map whole ranges
+    of scores to a single value, so applicants who were ordered can end up tied, and ROC AUC
+    can change through those ties. Apart from them, the ranking is kept and the change is in
+    the scale, which is what the recalibration is for.
 
     It is fitted on the validation split alone. A calibrator that has seen the holdout
     leaves nothing honest to report on it, which is the mistake this function exists to

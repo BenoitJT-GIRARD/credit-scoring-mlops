@@ -510,6 +510,8 @@ perf = [
 ]
 serve = [
     { name = "fastapi" },
+    { name = "httpx" },
+    { name = "plotly" },
     { name = "pydantic" },
     { name = "streamlit" },
     { name = "uvicorn", extra = ["standard"] },
@@ -567,6 +569,8 @@ perf = [
 ]
 serve = [
     { name = "fastapi", specifier = ">=0.129.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "plotly", specifier = ">=5.24.1" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "streamlit", specifier = ">=1.56.0,<2.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.41.0" },

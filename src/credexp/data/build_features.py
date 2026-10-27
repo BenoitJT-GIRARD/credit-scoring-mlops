@@ -5,8 +5,9 @@ from tables that record what happened before the application. No aggregate cross
 customers and none reaches forward in time -- which is the reason the published scores on
 this dataset are not the optimistic ones.
 
-`_check_raw_files` fails early and by name: a missing table produces a feature matrix that
-is silently short of a hundred columns, and the model trains on it without complaint.
+`_check_raw_files` checks the eight files before any of them is read, and names every one
+that is missing. Without it, `pandas` would stop the build at the first missing file only
+when its turn came, after the tables before it had been read and aggregated.
 """
 
 from __future__ import annotations

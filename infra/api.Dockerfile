@@ -18,6 +18,9 @@ COPY src ./src
 COPY scripts ./scripts
 COPY src/credexp/app ./src/credexp/app
 COPY models ./models
+# The interface runs from this image too, and Streamlit reads its theme and toolbar
+# settings from `.streamlit/` in the working directory.
+COPY .streamlit ./.streamlit
 
 # No `--group mlops`. The registry is a training-time convenience, and the loader imports
 # MLflow only on the path that resolves a registered version, which this image is
@@ -44,7 +47,8 @@ ENV FEATURE_COLUMNS_PATH=/app/models/feature_columns.json
 
 EXPOSE 8000
 
-# The liveness probe is the API's own route, the one that answers without the model loaded.
+# The liveness probe is the API's own `/health` route. It does not read the model, and it
+# answers once the startup, which loads the model, has finished.
 # The dashboard service builds from this same image and overrides the probe in the compose:
 # it listens on another port, and the inherited one would report it dead forever.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
@@ -54,4 +58,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
 RUN useradd --create-home --uid 1000 credexp && chown -R credexp:credexp /app
 USER credexp
 
-CMD ["uv", "run", "python", "scripts/run_api.py"]
+# `--no-sync` starts the environment installed above, unchanged. A plain `uv run` would first
+# install the default `dev` group, which the build leaves out, so every start would need the
+# network and would download the test and lint tools.
+CMD ["uv", "run", "--no-sync", "python", "scripts/run_api.py"]

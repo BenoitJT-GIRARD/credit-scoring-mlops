@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import tomllib
 
+import pytest
+
 from credexp.figure_style import PALETTE
-from credexp.utils.paths import ROOT_DIR
+from credexp.utils.paths import INFRA_DIR, ROOT_DIR
 
 THEME = tomllib.loads((ROOT_DIR / ".streamlit" / "config.toml").read_text(encoding="utf-8"))
 
@@ -34,3 +36,15 @@ def test_the_page_accepts_no_upload() -> None:
     """One page asks an API and the other reads a log: neither has an upload to accept."""
     assert THEME["server"]["maxUploadSize"] == 1
     assert THEME["server"]["enableXsrfProtection"] is True
+
+
+@pytest.mark.parametrize(
+    "dockerfile", ["api.Dockerfile", "huggingface/Dockerfile"], ids=["compose", "space"]
+)
+def test_the_images_that_run_the_pages_carry_the_theme(dockerfile: str) -> None:
+    """Streamlit reads `.streamlit/` from its working directory, so an image without it serves
+    the default colours and the Deploy toolbar whatever this file says."""
+    lines = (INFRA_DIR / dockerfile).read_text(encoding="utf-8").splitlines()
+    copies = [line.split() for line in lines if line.startswith("COPY ")]
+
+    assert any(".streamlit" in parts[1:-1] for parts in copies)

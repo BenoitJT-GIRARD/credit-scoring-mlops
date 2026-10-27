@@ -98,9 +98,10 @@ def split_threshold_cost(
     """Quantify how optimistic it is to pick a threshold on the data that scores it.
 
     Splits the sample into two stratified halves. `optimistic` picks and evaluates the
-    threshold on the same half — what run_cv does today. `honest` picks on one half and
-    evaluates on the other. The gap between them is the optimism, in the same units as
-    the business cost, per evaluated row.
+    threshold on the same half, as `run_cv` did before it scored each fold at the threshold
+    of the previous one, and as the tuning objective in `credexp.modeling.tuning` still does.
+    `honest` picks on one half and evaluates on the other. The gap between them is the
+    optimism, in the same units as the business cost, per evaluated row.
     """
     from sklearn.model_selection import train_test_split
 

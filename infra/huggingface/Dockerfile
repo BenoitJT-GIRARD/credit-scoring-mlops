@@ -19,6 +19,9 @@ COPY src /app/src
 COPY scripts /app/scripts
 COPY src/credexp/app /app/src/credexp/app
 COPY models /app/models
+# The theme and the toolbar settings live in `.streamlit/`, which Streamlit looks up in the
+# working directory.
+COPY .streamlit /app/.streamlit
 
 COPY infra/huggingface/nginx.conf /etc/nginx/conf.d/default.conf
 COPY infra/huggingface/start.sh /app/start.sh

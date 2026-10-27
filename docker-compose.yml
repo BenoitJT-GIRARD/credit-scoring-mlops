@@ -57,7 +57,8 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/credexp
       API_BASE_URL: http://api:8000
-    command: ["uv", "run", "streamlit", "run", "src/credexp/app/Overview.py", "--server.address", "0.0.0.0", "--server.port", "8501"]
+    # `--no-sync`, as in the image's own command: the environment is the one the image built.
+    command: ["uv", "run", "--no-sync", "streamlit", "run", "src/credexp/app/Overview.py", "--server.address", "0.0.0.0", "--server.port", "8501"]
     ports:
       - "8501:8501"
 
