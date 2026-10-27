@@ -1,6 +1,6 @@
 # Running it
 
-Start the stack, give it traffic, and know what to look at when something stops answering.
+How to start the stack, send it traffic, and diagnose a service that stops answering.
 
 ## Starting it
 
@@ -9,8 +9,9 @@ cp .env.example .env
 docker compose up -d          # API :8000, Streamlit :8501, PostgreSQL, Prometheus, Grafana :3000
 ```
 
-That starts five containers, with one image shared by the API and the interface. The model is
-the three files under `models/`, copied into the image and loaded once at startup.
+This starts five containers. The API and the interface are built from the same Dockerfile,
+`infra/api.Dockerfile`. The model consists of the three files under `models/`, which are copied
+into the image and loaded once at startup.
 
 Without Docker:
 
@@ -21,53 +22,61 @@ uv run python scripts/run_api.py                 # http://127.0.0.1:8000/docs
 uv run streamlit run src/credexp/app/Overview.py # http://127.0.0.1:8501
 ```
 
-## What changes what
+## Configuration
 
 | Variable | Default | What it changes |
 |---|---|---|
-| `MODEL_LOAD_MODE` | `auto` | `joblib` reads `models/`; `mlflow` resolves a registered version |
+| `MODEL_LOAD_MODE` | `auto` | `joblib` reads `models/`; `mlflow` and `auto` both try the registry and fall back to `models/` if it fails |
 | `MODEL_JOBLIB_PATH` | `models/pipeline.joblib` | the artefact to serve |
-| `THRESHOLD_PATH` | `models/threshold.json` | the operating point |
-| `FEATURE_COLUMNS_PATH` | `models/feature_columns.json` | the column order the pipeline was fitted on |
+| `THRESHOLD_PATH` | `models/threshold.json` | the operating point, when no manifest is present |
+| `FEATURE_COLUMNS_PATH` | `models/feature_columns.json` | the column order the pipeline was fitted on, when no manifest is present |
 | `DATABASE_URL` | a local PostgreSQL | where the prediction log is written |
-| `DB_CONNECT_TIMEOUT` | `3` | how long a missing database may delay a startup |
-| `API_ROOT_PATH` | empty | the prefix, when the service is behind a reverse proxy |
+| `DB_CONNECT_TIMEOUT` | `3` | the seconds allowed for opening a database connection |
+| `API_ROOT_PATH` | empty | the prefix, when the service runs behind a reverse proxy |
 | `PROMETHEUS_ENABLED` | `true` | whether `/metrics` is exposed |
 | `API_BASE_URL` | `http://127.0.0.1:8000` | where the interface looks for the service |
 
-`.env.example` carries the full list with what each one is for.
+`.env.example` lists the variables with their purpose, and sets `MODEL_LOAD_MODE` to `joblib`.
+One variable is absent from it: `CREDEXP_ROOT`, which overrides the project root that
+`credexp.utils.paths` finds.
 
 ## The two probes, and which one to wire where
 
 | Route | Answers | A failure means |
 |---|---|---|
-| `/health` | the process is up | restart it |
-| `/model-info` | a model is loaded (503 until one is) | stop sending it traffic |
+| `/health` | the process is up; it does not read the model | restart it |
+| `/model-info` | which model is loaded, or 503 when none is | stop sending it traffic |
 
-The container's `HEALTHCHECK` is wired to the first. Wired to the second, a container that has
-not finished loading its model would be killed before it ever could.
+The `HEALTHCHECK` of the container calls `/health`. The service opens its port only after the
+startup has loaded the model, so neither route answers while the model is loading, and a model
+that fails to load stops the process. The probe allows a start period of thirty seconds.
 
-## Giving it traffic, and watching it
+## Sending traffic, and watching it
 
 ```bash
 uv run python scripts/send_sample_traffic.py --requests 300
 ```
 
-The dashboard at `:3000` is provisioned from `infra/grafana/`: the data source, the panels
-and the queries are files in this repository, so the dashboard does not live in any one
-person's browser.
+The script sends applicants drawn from the holdout: 300 single requests with these options, plus
+five batches of twenty by default. The dashboard at `:3000` is provisioned from
+`infra/grafana/`. Its data source, panels and queries are files in this repository.
 
 <!-- source: docs/images/MANIFEST.json -->
-![The dashboard during a replay of three hundred applicants: the rate, the quantiles, and the acceptance rate under them](images/grafana-dashboard.png)
+![The dashboard after a replay of holdout applicants: the four summary panels at the top, the prediction rate by route, the score quantiles against the threshold, and the acceptance split](images/grafana-dashboard.png)
 
-What `/metrics` exposes, beyond the HTTP histogram the instrumentator adds:
+The four summary panels read counters held by the API process, and a restart sets them back to
+zero. In this capture they count two decisions while the rate panel shows a longer replay,
+because the API had restarted after most of the replay.
+
+Besides the HTTP metrics that the instrumentator adds, `/metrics` exposes four metrics of its
+own:
 
 | Metric | What it counts |
 |---|---|
-| `credexp_predictions_total` | scored requests, by decision |
+| `credexp_predictions_total` | scored applicants, one per row of a batch, by model version and endpoint |
 | `credexp_default_probability` | the distribution of the returned scores |
-| `credexp_threshold_crossings_total` | how often the score crossed the threshold |
-| `credexp_prediction_failures_total` | failures, by kind |
+| `credexp_threshold_crossings_total` | decisions, by side of the threshold |
+| `credexp_prediction_failures_total` | requests that produced no score, by kind of failure |
 
 ## Watching the traffic itself
 
@@ -76,41 +85,48 @@ uv run python scripts/build_drift_reference.py   # var/data/processed/reference.
 uv run python scripts/monitoring_drift.py        # reports/monitoring/
 ```
 
-Two frames go into the comparison: a fixed sample of the training population, written once by
-the first command, and whatever the service has been sent since, rebuilt from the log by the
-second. Both are raw payloads. `credexp.monitoring.drift` explains what measuring at that level
-can and cannot see.
+The comparison uses two frames. The first command writes a fixed sample of 20 000 rows of the
+feature matrix, or of the holdout when the matrix has not been rebuilt. The second command
+rebuilds the current frame from the payloads of the most recent successful requests in the log,
+and keeps only the columns that appear in both frames, which are the columns the callers sent.
+`credexp.monitoring.drift` explains which changes a comparison at this level can detect.
 
 ## What the decisions look like by group
 
-The README publishes the age bands and the sexes as one table. The second of the two figures
-sits here because it describes how the service behaves in operation: the same threshold,
-applied to two populations with different base rates, refuses them at different rates.
+The README publishes the age bands and the two sexes in one table. The figure for the sexes is
+on this page because it describes what the shipped threshold does to two populations: applied to
+two groups with different default rates, the same threshold refuses them at different rates.
+`credexp.modeling.decision_report` computes it offline, on the holdout.
 
 <!-- source: reports/figures/MANIFEST.json -->
 ![Two bars, men and women, of the share each group is refused at the shipped threshold, over n = 30751 applicants and with each group's size under its bar](../reports/figures/fairness_gender.png)
 
-> **How to read it.** Two bars, one per group, each the share of that group the shipped
-> threshold says no to, with the group's size printed below it. Compare each bar with the
-> group's own default rate, which the fairness table of the README carries. A refusal rate
-> above the rate at which a group defaults is the part that no difference in risk explains.
+> **How to read it.** Each of the two bars gives the share of its group that the shipped
+> threshold refuses, with the size of the group printed below it. Each bar can be compared with
+> the default rate of the same group in the fairness table of the README. Both bars are higher
+> than that rate, since in both groups the applicants refused despite being able to repay
+> outnumber the defaulters who were accepted. The text stamped beneath the chart refers to a
+> 95 % Wilson interval for each rate, but no interval is drawn.
 
 ## When something stops answering
 
 | Symptom | What it is | What to do |
 |---|---|---|
-| `/model-info` returns 503 | no model loaded | check `MODEL_LOAD_MODE` and that `models/` reached the image |
-| Every prediction is 200 but the log is empty | the database is unreachable | the log is best effort; check `DATABASE_URL`, then `docker compose logs db` |
-| The service takes seconds to start | the database is unreachable and the deadline is waiting | expected: `DB_CONNECT_TIMEOUT` bounds it at three seconds |
-| A prediction returns 422 | a field name is not a feature, or `features` is empty | the response says which; the contract is `extra="forbid"` |
-| The dashboard is empty | nothing has been scored yet | `scripts/send_sample_traffic.py` |
-| The drift report is empty | the log holds no successful request | give it traffic first |
+| The API container exits at startup | `pipeline.joblib` was not found, or `feature_columns.json` was missing and no parquet file gave the column order | check `MODEL_LOAD_MODE` and that `models/` reached the image |
+| `/model-info` reports the fallback threshold, 0.5 by default | `threshold.json` was not found, and the loader fell back to `DEFAULT_THRESHOLD` and logged `threshold_file_missing` | check `THRESHOLD_PATH` and that `models/` reached the image |
+| Every prediction returns 200 but the log is empty | the database is unreachable | the log is best effort; check `DATABASE_URL`, then `docker compose logs db` |
+| The service takes seconds to start | the database is unreachable and the connection is waiting for its deadline | expected: `DB_CONNECT_TIMEOUT` limits the wait to three seconds |
+| A prediction returns 422 | an unexpected field in a `/predict` request or in a batch item, no feature at all, or a non-numeric feature value | the response names the field; the request schema sets `extra="forbid"` |
+| The dashboard is empty | nothing has been scored yet | run `scripts/send_sample_traffic.py` |
+| `monitoring_drift.py` stops with "No production prediction logs found" | the log holds no successful request | send traffic first |
 
 ## Deploying it as a Hugging Face Space
 
-`infra/huggingface/` holds what a single-container deployment needs: the Dockerfile, the nginx
-configuration that puts the interface and the API behind one port, the start script and
+`infra/huggingface/` holds the files for a single-container deployment: the Dockerfile, the
+nginx configuration that serves the interface and the API behind one port, the start script and
 [the Space card](../infra/huggingface/README.md). A Docker Space builds the Dockerfile at its
-root and reads the card from its root `README.md`: push this repository to a new Space with
-those two files moved there, and set `DATABASE_URL` as a secret of the Space if the decisions
-should be logged to a managed PostgreSQL. Without it the service runs and logs nothing.
+root and reads the card from its root `README.md`. To deploy, push this repository to a new
+Space with those two files moved to its root. Setting `DATABASE_URL` as a secret of the Space
+sends the decisions to a managed PostgreSQL, and without it the service runs and the log stays
+empty. The start script launches the interface from `src/credexp/app/Overview.py`, and
+`tests/unit/test_space_recipe.py` checks that every Python file it names exists.
