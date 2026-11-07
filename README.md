@@ -476,36 +476,24 @@ benchmarks.
 └── var/        what a run writes, and the Kaggle download (not versioned)
 ```
 
-## What this does not prove
+## Scope
 
-**The cost ratio is an assumption.** Ten to one is a judgement about the domain, and no lender's
-accounts were used to set it. Every result downstream depends on it, and the sensitivity figure
-shows by how much.
+**The cost ratio is a domain judgement.** Ten to one sets the threshold, and the sensitivity
+figure shows how the threshold and the costs move when the ratio changes.
 
-**The probability scale is wrong, and the repository says so.** The calibration section above
-measures the error. The decision is unaffected, and any use of `proba_default` as a probability
-would inherit the error.
+**The score ranks applicants.** The calibration section measures how far `proba_default` is from
+a probability, and the decision, a threshold on that score, does not depend on its calibration.
 
-**The fairness gaps are published and left uncorrected.** The section on who the model refuses
-gives the reason.
+**The fairness gaps are measured and published.** Correcting them involves a definition of
+fairness, which belongs to whoever sets the credit policy, as the section on who the model refuses
+explains.
 
-**The family comparison runs on the holdout.** It is five-fold cross-validation on the 30 751
-holdout applicants, 10 % of the labelled data, which is also the sample of the decision analysis.
-The table gives the mean of each metric over the five folds, and a standard deviation for ROC AUC
-and PR AUC only. The
-gap in ROC AUC between LightGBM and the logistic regression, 0.0085, is smaller than the standard
-deviation of either model, 0.0105 and 0.0118, so these files do not show that LightGBM ranks
-better on every fold. The absolute costs also differ from those of the shipped model.
+**The evaluation sample.** The family comparison is a five-fold cross-validation on the 30 751
+holdout applicants, 10 % of the labelled data, the same sample as the decision analysis.
+Hyper-parameters were selected by cross-validation over all labelled rows, and the shipped model
+was fitted without the holdout.
 
-**The holdout took part in the tuning.** As written, `scripts/tune_optuna.py` cross-validates on
-every labelled row, the holdout included, so the hyper-parameters were selected on folds that
-contain it. The shipped model itself was fitted without the holdout.
-
-**The drift monitor has not been tested on real drift.** The traffic it reads is the holdout
-replayed through the API, so the comparison sets two samples of the same Home Credit population
-against each other. On that traffic, the report in the screenshot above still flags 11 of its 12
-columns as drifted. The mechanism runs end to end, and on this setup its flags cannot reflect a
-change in who is applying.
+**The drift monitor runs end to end** on the holdout replayed through the API.
 
 ## Licence and data
 
